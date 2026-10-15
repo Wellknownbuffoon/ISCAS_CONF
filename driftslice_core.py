@@ -37,8 +37,8 @@ COLORS = {
     METHOD_DS: "#e6a400",
 }
 
-SCHEMA = "driftslice-unified-v3-auditable"
-CODE_REVISION = "2026-10-15-v3-fp32-direct-hwa-selection"
+SCHEMA = "driftslice-unified-v4-verified-pcm"
+CODE_REVISION = "2026-10-15-v4-verified-pcm-calibration"
 
 
 @dataclass
@@ -100,6 +100,8 @@ class Config:
     programming_noise_scale: float = 1.0
     read_noise_scale: float = 1.0
     drift_scale: float = 1.0
+    # AIHWKit clips noisy conductance below zero, not above g_max.
+    pcm_conductance_bounds: str = "aihwkit_nonnegative"
 
     # Proposed DriftSlice
     driftslice_bins: int = 4
@@ -118,6 +120,7 @@ class Config:
     attention_lr: float = 5e-5
     attention_lambda: float = 0.5
     attention_input_gain: float = 0.9
+    input_intervention_semantics: str = "training_only_raw_deployment"
     nsr_lambda: float = 0.1
     validation_reads: int = 3
     driftslice_selection_realizations: int = 3
@@ -159,9 +162,15 @@ class Config:
             raise ValueError("Invalid DriftSlice bank size")
         if not (0 < c.gain_min <= 1 <= c.gain_max):
             raise ValueError("gain bounds must include 1")
-        if not c.fast_mode and c.strict_154_epochs:
-            if c.digital_epochs != 30 or c.epochs != 154:
-                raise ValueError("Full protocol requires 30 FP32 + 154 analog epochs")
+        if not c.fast_mode:
+            if (c.digital_epochs, c.epochs, c.train_repeats,
+                    c.realizations, c.retention_points) != (30, 154, 5, 30, 75):
+                raise ValueError("Full protocol requires 30 FP32 + 154 analog epochs, "
+                                 "5 repetitions, 30 realizations, and 75 timestamps")
+        if c.input_intervention_semantics != "training_only_raw_deployment":
+            raise ValueError("Attention/GainOnly are explicitly training-only interventions")
+        if c.pcm_conductance_bounds not in ("aihwkit_nonnegative", "legacy_gmax_clip"):
+            raise ValueError("Unknown PCM conductance bound convention")
         if not c.methods or len(set(c.methods)) != len(c.methods):
             raise ValueError("Training methods must be nonempty and unique")
         if c.validation_reads < 1 or c.driftslice_selection_realizations < 1:
@@ -220,7 +229,7 @@ def check_environment(cfg: Config) -> torch.device:
     return device
 
 
-def experiment_directory(cfg: Config, base_dir: Path):
+def experiment_directory(cfg: Config, base_dir: Path, data_identity=None):
     import aihwkit
 
     root = Path(base_dir) / cfg.output_root / ("smoke" if cfg.fast_mode else "full")
@@ -236,6 +245,8 @@ def experiment_directory(cfg: Config, base_dir: Path):
         "config": contract_cfg,
         "torch": torch.__version__,
         "aihwkit": aihwkit.__version__,
+        "experiment_label": "SMOKE TEST" if cfg.fast_mode else "FULL PROTOCOL",
+        "dataset_files_sha256": data_identity,
     }
     digest = hashlib.sha256(
         json.dumps(contract, sort_keys=True, default=str).encode()
@@ -351,6 +362,21 @@ def _idx_exists(raw_dir: Path, name: str) -> bool:
 
 def _mnist_complete(raw_dir: Path) -> bool:
     return all(_idx_exists(raw_dir, name) for name in _MNIST_FILES)
+
+
+def mnist_file_hashes(raw_dir: Path):
+    """Fingerprint actual IDX inputs so replacing data cannot silently resume a run."""
+    result = {}
+    for name in _MNIST_FILES:
+        path = raw_dir / name
+        if not path.is_file():
+            path = raw_dir / (name + '.gz')
+        digest = hashlib.sha256()
+        with path.open('rb') as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                digest.update(chunk)
+        result[path.name] = digest.hexdigest()
+    return result
 
 
 def resolve_mnist_raw_dir(cfg: Config, base_dir: Path) -> Path:
@@ -541,27 +567,58 @@ def cpu_cloned_state(model: nn.Module):
     return move_tensor_leaves(state)
 
 
+def state_fingerprint(model: nn.Module) -> str:
+    """Stable initialization identity for digital FP32 weights AND biases."""
+    digest = hashlib.sha256()
+    for name, value in sorted(model.state_dict().items()):
+        if not isinstance(value, Tensor):
+            raise TypeError("Digital provenance expects Tensor-only state")
+        value = value.detach().cpu().contiguous()
+        digest.update(name.encode())
+        digest.update(str((tuple(value.shape), value.dtype)).encode())
+        digest.update(value.numpy().tobytes())
+    return digest.hexdigest()
+
+
+def validate_epoch_history(history, expected: int, label: str, complete=True):
+    """Reject missing, duplicated, out-of-order, or excess epochs on resume."""
+    epochs = [int(row['epoch']) for row in history]
+    if epochs != list(range(1, len(history) + 1)) or len(history) > expected:
+        raise RuntimeError(f"Invalid {label} epoch history")
+    if complete and len(history) != expected:
+        raise RuntimeError(f"Incomplete {label} training: {len(history)}/{expected} epochs")
+
+
 def train_digital_pretrained(cfg: Config, fold: int, train_loader, val_loader,
                              device: torch.device, out: Path, fingerprint: str):
-    """Train digital FP32 model first, with best-validation checkpoint.
+    """Complete all FP32 epochs; transfer the validation-selected checkpoint.
 
-    Digital optimization recipe is an assumption; the 2025 paper only says
-    the analog weights were initialized with pre-trained non-HWA weights.
+    Keep final, selected, and resumable optimizer/scheduler state separately.
+    No test loader is accepted by this training/selection function.
     """
+    if not cfg.fast_mode and cfg.digital_epochs != 30:
+        raise ValueError("Full FP32 pretraining requires exactly 30 epochs")
     seed_all(cfg.seed + fold)
     model = DigitalMLP().to(device=device, dtype=torch.float32)
-    assert all(p.dtype == torch.float32 for p in model.parameters())
+    initial_hash = state_fingerprint(model)
     checkpoint = Path(out) / f"fold{fold}_digital_pretrained.pt"
+    training_path = Path(out) / f"fold{fold}_digital_training.pt"
     history_file = Path(out) / f"fold{fold}_digital_history.csv"
     if checkpoint.exists():
         pack = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        if pack["fingerprint"] != fingerprint:
-            raise RuntimeError("Digital pretrained checkpoint fingerprint mismatch")
+        if (pack.get("fingerprint") != fingerprint or
+                pack.get("epochs_completed") != cfg.digital_epochs):
+            raise RuntimeError("Digital pretrained checkpoint fingerprint/epoch mismatch")
+        validate_epoch_history(pack['history'], cfg.digital_epochs, 'FP32')
+        if not 1 <= pack['selected_epoch'] <= cfg.digital_epochs:
+            raise RuntimeError("Invalid FP32 selected epoch")
         model.load_state_dict(pack["model"])
-        hist = pd.DataFrame(pack["history"])
-        _, acc = evaluate_model(model, val_loader, device)
-        print(f"Digital fold={fold}: loaded FP32 pretrained checkpoint, val={acc:.2f}%")
-        return model.eval(), hist
+        if state_fingerprint(model) != pack['selected_state_sha256']:
+            raise RuntimeError("Digital pretrained state identity mismatch")
+        model.pretrained_provenance = {k: pack[k] for k in (
+            'selected_epoch', 'epochs_completed', 'selected_state_sha256', 'selection_split')}
+        model.pretrained_provenance['checkpoint'] = checkpoint.name
+        return model.eval(), pd.DataFrame(pack['history'])
 
     train_loader.generator.manual_seed(cfg.seed + fold + 3000)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.digital_lr,
@@ -571,17 +628,31 @@ def train_digital_pretrained(cfg: Config, fold: int, train_loader, val_loader,
         epochs=cfg.digital_epochs, steps_per_epoch=len(train_loader),
         div_factor=cfg.digital_max_lr / cfg.digital_lr,
     )
-    best_acc = -1.0
-    best_state = None
-    rows = []
-    for epoch in range(cfg.digital_epochs):
+    best_acc, best_loss, best_state, best_epoch = -1.0, math.inf, None, -1
+    rows, start_epoch, optimizer_steps = [], 0, 0
+    if training_path.exists():
+        saved = torch.load(training_path, map_location='cpu', weights_only=False)
+        if saved.get('fingerprint') != fingerprint:
+            raise RuntimeError('Digital training checkpoint fingerprint mismatch')
+        rows, start_epoch = saved['history'], saved['next_epoch']
+        validate_epoch_history(rows, cfg.digital_epochs, 'FP32', complete=False)
+        if start_epoch != len(rows):
+            raise RuntimeError('Digital resume cursor/history mismatch')
+        model.load_state_dict(saved['model'])
+        optimizer.load_state_dict(saved['optimizer'])
+        scheduler.load_state_dict(saved['scheduler'])
+        best_acc, best_loss = saved['best_val_accuracy'], saved['best_val_loss']
+        best_state, best_epoch = saved['best_model'], saved['best_epoch']
+        optimizer_steps = saved['optimizer_steps']
+        train_loader.generator.set_state(saved['loader_rng'].cpu())
+        torch.set_rng_state(saved['torch_rng'].cpu())
+        if device.type == 'cuda':
+            torch.cuda.set_rng_state(saved['cuda_rng'].cpu(), device)
+    for epoch in range(start_epoch, cfg.digital_epochs):
         model.train()
-        total_ce = 0.0
-        correct = 0
-        n = 0
+        total_ce = correct = n = 0
         for x, y in train_loader:
-            x = x.to(device, dtype=torch.float32)
-            y = y.to(device)
+            x, y = x.to(device, dtype=torch.float32), y.to(device)
             optimizer.zero_grad(set_to_none=True)
             pred = model(x)
             loss = F.cross_entropy(pred, y)
@@ -591,32 +662,57 @@ def train_digital_pretrained(cfg: Config, fold: int, train_loader, val_loader,
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip,
                                            error_if_nonfinite=True)
             optimizer.step()
+            optimizer_steps += 1
             scheduler.step()
             bs = y.numel()
             n += bs
             correct += (pred.argmax(1) == y).sum().item()
             total_ce += loss.item() * bs
         val_ce, val_acc = evaluate_model(model, val_loader, device)
-        rows.append({"fold":fold, "epoch":epoch+1,
-                     "train_ce":total_ce/n, "train_accuracy":100*correct/n,
-                     "val_ce":val_ce, "val_accuracy":val_acc})
-        if val_acc > best_acc:
-            best_acc = val_acc
+        rows.append({"fold": fold, "epoch": epoch+1, "train_ce": total_ce/n,
+                     "train_accuracy": 100*correct/n,
+                     "val_ce": val_ce, "val_accuracy": val_acc})
+        if val_acc > best_acc:  # preserve the original earliest-maximum-accuracy rule
+            best_acc, best_loss, best_epoch = val_acc, val_ce, epoch + 1
             best_state = cpu_cloned_state(model)
+        atomic_torch_save({
+            'fingerprint': fingerprint, 'model': cpu_cloned_state(model),
+            'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict(),
+            'history': rows, 'next_epoch': epoch + 1, 'optimizer_steps': optimizer_steps,
+            'best_model': best_state, 'best_epoch': best_epoch,
+            'best_val_accuracy': best_acc, 'best_val_loss': best_loss,
+            'loader_rng': train_loader.generator.get_state(),
+            'torch_rng': torch.get_rng_state(),
+            'cuda_rng': torch.cuda.get_rng_state(device) if device.type == 'cuda' else None,
+        }, training_path)
+        pd.DataFrame(rows).to_csv(history_file, index=False)
         print(f"DIGITAL FP32 fold={fold} epoch={epoch+1}/{cfg.digital_epochs} "
               f"train={100*correct/n:.2f}% val={val_acc:.2f}%")
-        pd.DataFrame(rows).to_csv(history_file, index=False)
-    if best_state is None:
-        raise RuntimeError("Digital training produced no valid model")
+    validate_epoch_history(rows, cfg.digital_epochs, 'FP32')
+    if best_state is None or not 1 <= best_epoch <= cfg.digital_epochs:
+        raise RuntimeError("Digital training produced no valid selection")
+    common = {'fingerprint': fingerprint, 'history': rows,
+              'epochs_completed': len(rows), 'optimizer_steps': optimizer_steps,
+              'selection_split': 'validation_only', 'dtype': 'torch.float32',
+              'initial_state_sha256': initial_hash,
+              'optimizer': optimizer.state_dict(), 'scheduler': scheduler.state_dict()}
+    atomic_torch_save({**common, 'model': cpu_cloned_state(model),
+                       'checkpoint_kind': 'final', 'checkpoint_epoch': cfg.digital_epochs},
+                      Path(out) / f'fold{fold}_digital_final.pt')
     model.load_state_dict(best_state)
-    _, best_val_acc = evaluate_model(model, val_loader, device)
-    if not cfg.fast_mode and best_val_acc < cfg.digital_min_val_accuracy:
-        raise RuntimeError(f"Digital pretraining underfit: val={best_val_acc:.2f}%; "
-                           "increase digital_epochs or inspect preprocessing")
-    atomic_torch_save({"fingerprint":fingerprint, "model":best_state,
-                       "history":rows, "best_val_accuracy":best_val_acc,
-                       "dtype":"torch.float32"}, checkpoint)
-    print(f"FP32 PRETRAIN PASS fold={fold}: val={best_val_acc:.2f}%")
+    if not cfg.fast_mode and best_acc < cfg.digital_min_val_accuracy:
+        raise RuntimeError(f"Digital pretraining underfit: val={best_acc:.2f}%; "
+                           "inspect preprocessing; do not extend the 30-epoch protocol")
+    provenance = {'selected_epoch': best_epoch, 'epochs_completed': len(rows),
+                  'selected_state_sha256': state_fingerprint(model),
+                  'selection_split': 'validation_only'}
+    selected = {**common, **provenance, 'model': best_state,
+                'checkpoint_kind': 'best_validation', 'checkpoint_epoch': best_epoch,
+                'best_val_accuracy': best_acc, 'best_val_loss': best_loss,
+                'optimizer_state_epoch': cfg.digital_epochs}
+    atomic_torch_save(selected, checkpoint)
+    atomic_torch_save(selected, Path(out) / f'fold{fold}_digital_best_validation.pt')
+    model.pretrained_provenance = {**provenance, 'checkpoint': checkpoint.name}
     return model.eval(), pd.DataFrame(rows)
 
 
@@ -712,6 +808,7 @@ def transfer_pretrained_digital_to_analog(cfg: Config, digital_model: DigitalMLP
     """Transfer *trained* FP32 weights into HWA layers without reinitialization."""
     state = cpu_cloned_state(digital_model)
     analog_model = AnalogMLP(cfg, seed, device, pretrained_state=state)
+    report = {}
     for name, layer in analog_model.layers().items():
         logical_w, logical_b = layer.get_weights(apply_weight_scaling=True)
         torch.testing.assert_close(logical_w.detach().cpu(), state[f"{name}.weight"],
@@ -720,6 +817,19 @@ def transfer_pretrained_digital_to_analog(cfg: Config, digital_model: DigitalMLP
         torch.testing.assert_close(logical_b.detach().cpu(), state[f"{name}.bias"],
                                    rtol=2e-3, atol=2e-4,
                                    msg=lambda msg: f"Digital→analog transfer failed for {name} bias: {msg}")
+        tile, = list(layer.analog_tiles())
+        if not tile.digital_bias:
+            raise RuntimeError("Expected unprogrammed digital bias storage")
+        report[name] = {}
+        for kind, actual in (("weight", logical_w), ("bias", logical_b)):
+            error = actual.detach().cpu() - state[f"{name}.{kind}"]
+            report[name][kind + "_max_abs_error"] = float(error.abs().max())
+            report[name][kind + "_rms_error"] = float(error.square().mean().sqrt())
+    analog_model.transfer_report = report
+    analog_model.pretrained_provenance = {
+        **getattr(digital_model, 'pretrained_provenance', {}),
+        'selected_state_sha256': state_fingerprint(digital_model),
+    }
     if val_loader is not None:
         _, digital_acc = evaluate_model(digital_model, val_loader, device)
         _, analog_acc = evaluate_model(analog_model, val_loader, device)
@@ -1101,8 +1211,17 @@ def make_pcm_noise_model(cfg: Config):
     return noise, converter
 
 
+def bound_programmed_conductance(g: Tensor, cfg: Config) -> Tensor:
+    """Keep the historical upper cap available only as an explicit legacy option."""
+    if cfg.pcm_conductance_bounds == "legacy_gmax_clip":
+        return g.clamp(0, cfg.gmax_us)
+    if cfg.pcm_conductance_bounds != "aihwkit_nonnegative":
+        raise ValueError("Unknown PCM conductance bound convention")
+    return g.clamp_min(0)
+
+
 class PCMPhysicalMatrix:
-    """One differential PCM matrix realization."""
+    """Persistent device-state backend; distinct from native signed-weight remapping."""
     def __init__(self, logical_weight: Tensor, cfg: Config, seed: int):
         self.cfg = cfg
         self.device = logical_weight.device
@@ -1117,7 +1236,8 @@ class PCMPhysicalMatrix:
 
         with random_stream(seed, self.device):
             self.g_programmed = tuple(
-                self.noise.apply_programming_noise_to_conductance(g).clamp(0, cfg.gmax_us)
+                bound_programmed_conductance(
+                    self.noise.apply_programming_noise_to_conductance(g), cfg)
                 for g in self.g_target
             )
             self.nu = tuple(
@@ -1176,9 +1296,8 @@ class PCMClassReferenceBank:
         self.target = torch.stack(refs, dim=0)  # [B,R]
 
         with random_stream(seed, device):
-            self.programmed = self.noise.apply_programming_noise_to_conductance(
-                self.target
-            ).clamp(0, cfg.gmax_us)
+            self.programmed = bound_programmed_conductance(
+                self.noise.apply_programming_noise_to_conductance(self.target), cfg)
             self.nu = self.noise.generate_drift_coefficients(self.target)
 
         # One stored reference measurement at the 20-s reference point.
@@ -1216,23 +1335,124 @@ def apply_driftslice(
     return tuple(corrected)
 
 
-def global_gdc_gain(w_ref, w_now, snap, io, seed, device):
-    """Measured all-ones calibration through the same DAC/ADC path.
+def _gdc_readout(x, weight, snap, io):
+    """Observe actual DAC/ADC samples via a local subclass; never patch AIHWKit.
 
-    Per-layer functional calibration, not native mapped-tile GDC.
-    Bias is excluded from the measurement. Independent repeated read noise.
+    Diagnostics currently support the experiment's deterministic ADC/DAC rounding.
+    Noise and clipping are executed by upstream AnalogMVM unchanged.
     """
-    calibration = dict(snap)
-    calibration["bias"] = torch.zeros_like(snap["bias"])
-    ones = torch.ones(1, w_ref.shape[1], device=device, dtype=w_ref.dtype)
+    from aihwkit.simulator.tiles.analog_mvm import AnalogMVM
+    from aihwkit.simulator.tiles.utils import UniformQuantize
+    if io.inp_sto_round or io.out_sto_round or io.is_perfect:
+        raise ValueError('Calibration diagnostics require the nonperfect deterministic-rounding path')
+    observations = {}
+
+    class ObservedMVM(AnalogMVM):
+        @classmethod
+        def _prepare_input(cls, input_, scale, scaling, with_asymmetry, io_pars):
+            before = input_.clone() * scale if scaling else input_.clone()
+            if io_pars.inp_res > 0:
+                before = UniformQuantize.apply(before, io_pars.inp_res,
+                                               io_pars.inp_bound, False)
+            observations['dac_clip_fraction'] = float((before.abs() > io_pars.inp_bound).float().mean())
+            observations['dac_min'], observations['dac_max'] = float(before.min()), float(before.max())
+            return super()._prepare_input(input_, scale, scaling, with_asymmetry, io_pars)
+
+        @classmethod
+        def _finalize_output(cls, out_values, io_pars, **kwargs):
+            observations['adc_noiseless_min'] = float(out_values.min())
+            observations['adc_noiseless_max'] = float(out_values.max())
+            # Upstream mutates this buffer for output asymmetry/noise, then
+            # quantizes into a new tensor and clamps the returned output.
+            noisy = out_values.clone()
+            result = super()._finalize_output(noisy, io_pars, **kwargs)
+            adc = noisy
+            if io_pars.out_res > 0:
+                adc = UniformQuantize.apply(adc, io_pars.out_res, io_pars.out_bound, False)
+            observations['adc_clip_fraction'] = float((adc.abs() > io_pars.out_bound).float().mean())
+            observations['adc_min'], observations['adc_max'] = float(adc.min()), float(adc.max())
+            return result
+
+    calibration = dict(snap, bias=torch.zeros_like(snap['bias']))
+    r = snap['input_range'].abs().clamp_min(1e-8)
+    observations['input_clip_fraction'] = float((x.abs() > r).float().mean())
+    y = shared_mvm(x, weight, calibration, io, mvm_class=ObservedMVM)
+    observations.update(output_min=float(y.min()), output_max=float(y.max()),
+                        input_range=float(r), output_scale_min=float(snap['scale'].min()),
+                        output_scale_max=float(snap['scale'].max()),
+                        analog_output_noise_std=io.out_noise, analog_input_noise_std=io.inp_noise,
+                        adc_bound=io.out_bound, dac_bound=io.inp_bound,
+                        adc_resolution=io.out_res, dac_resolution=io.inp_res,
+                        digital_bias_excluded=True)
+    return y.abs().mean(), observations
+
+
+def _gdc_pair(x, w_ref, w_now, snap, io, seed, device, repeats=4):
+    readings, diagnostics = {}, {}
     with torch.inference_mode(), random_stream(seed, device):
-        baseline = torch.stack([shared_mvm(ones, w_ref, calibration, io).abs().mean()
-                                for _ in range(4)]).mean()
-        current = torch.stack([shared_mvm(ones, w_now, calibration, io).abs().mean()
-                               for _ in range(4)]).mean()
-    if not torch.isfinite(current) or current <= 1e-8:
-        raise FloatingPointError("Invalid GDC calibration readout")
-    return float(baseline/current)
+        for stage, w in (('reference', w_ref), ('current', w_now)):
+            samples = [_gdc_readout(x, w, snap, io) for _ in range(repeats)]
+            readings[stage] = torch.stack([v for v, _ in samples]).mean()
+            diagnostics[stage + '_readout_abs_mean'] = float(readings[stage])
+            for key in samples[0][1]:
+                vals = [d[key] for _, d in samples]
+                value = min(vals) if key.endswith('_min') else (
+                    max(vals) if key.endswith('_max') else float(np.mean(vals)))
+                diagnostics[stage + '_' + key] = value
+    if not torch.isfinite(readings['current']) or readings['current'] <= 1e-8:
+        raise FloatingPointError('Invalid GDC calibration readout')
+    return float(readings['reference'] / readings['current']), diagnostics
+
+
+def global_gdc_gain(w_ref, w_now, snap, io, seed, device, return_diagnostics=False):
+    """Historical all-ones noisy calibration; reported as GDC-legacy-ones.
+
+    Bias is excluded. Input range clipping, DAC/ADC clipping, noise, and output
+    scaling remain exactly in its historical forward path.
+    """
+    ones = torch.ones(1, w_ref.shape[1], device=device, dtype=w_ref.dtype)
+    gain, diagnostics = _gdc_pair(ones, w_ref, w_now, snap, io, seed, device)
+    return (gain, diagnostics) if return_diagnostics else gain
+
+
+def safe_global_gdc_gain(w_ref, w_now, snap, io, seed, device):
+    """Measured one-hot calibration with conservative headroom and actual diagnostics.
+
+    Keeps DAC/ADC quantization and output noise. Rejects observed saturation
+    instead of presenting a clipped measurement as a saturation-safe baseline.
+    Calibration cost is n_inputs probes per read, not one all-ones probe.
+    """
+    from aihwkit.simulator.parameters.enums import NoiseManagementType
+    if io.noise_management != NoiseManagementType.CONSTANT or io.nm_thres != 1.0:
+        raise ValueError('Safe probe bound is audited for CONSTANT noise management at 1')
+    maximum = max(float(w_ref.abs().max()), float(w_now.abs().max()), 1e-8)
+    headroom = io.out_bound - 8 * io.out_noise
+    if headroom <= 0:
+        raise ValueError('Insufficient ADC headroom for noisy calibration')
+    amp = min(0.5, 0.5 * io.inp_bound, 0.5 * headroom / maximum)
+    r = snap['input_range'].abs().clamp_min(1e-8)
+    x = torch.eye(w_ref.shape[1], device=device, dtype=w_ref.dtype) * (r * amp)
+    gain, diagnostics = _gdc_pair(x, w_ref, w_now, snap, io, seed, device)
+    for stage in ('reference', 'current'):
+        for kind in ('input', 'dac', 'adc'):
+            if diagnostics[f'{stage}_{kind}_clip_fraction'] != 0:
+                raise FloatingPointError('Safe one-hot calibration clipped; inspect diagnostics')
+    diagnostics['normalized_probe_amplitude'] = amp
+    return gain, diagnostics
+
+
+def ideal_global_gdc_gain(w_ref, w_now, snap):
+    """Ideal linear one-hot readout; no ADC/DAC/noise, explicitly an oracle reference.
+
+    Equivalent to mean(abs(shared_mvm(r*eye, ..., perfect_io))) with bias=0.
+    Uses the same programmed 20-s reference as the measured custom baselines;
+    this differs from native ExactReference's unprogrammed target reference.
+    """
+    scale = snap['scale'].view(-1, 1)
+    reference, current = (w_ref * scale).abs().mean(), (w_now * scale).abs().mean()
+    if current <= 1e-8 or not torch.isfinite(current):
+        raise FloatingPointError('Invalid ideal GDC reference')
+    return float(reference / current)
 
 
 def shared_mvm(
@@ -1241,12 +1461,13 @@ def shared_mvm(
     snap: Dict[str, Tensor],
     io,
     gain: float = 1.0,
+    mvm_class=None,
 ):
     from aihwkit.simulator.tiles.analog_mvm import AnalogMVM
 
     r = snap["input_range"].abs().clamp_min(1e-8)
     normalized = x.clamp(-r.item(), r.item()) / r
-    y = AnalogMVM.matmul(weight, normalized, io, trans=False, is_test=True)
+    y = (mvm_class or AnalogMVM).matmul(weight, normalized, io, trans=False, is_test=True)
     y = y * r
     y = y * snap["scale"].view(1, -1) * float(gain)
     return y + snap["bias"]
@@ -1287,9 +1508,13 @@ def evaluate_snapshot(model: SnapshotMLP, loader: DataLoader, device: torch.devi
     for x, y in loader:
         x, y = x.to(device), y.to(device)
         logits = model(x)
+        if not torch.isfinite(logits).all():
+            raise FloatingPointError("Nonfinite snapshot evaluation logits")
         loss_sum += F.cross_entropy(logits, y, reduction="sum").item()
         correct += (logits.argmax(1) == y).sum().item()
         n += y.numel()
+    if not n:
+        raise ValueError("Empty snapshot evaluation loader")
     return loss_sum / n, 100.0 * correct / n
 
 

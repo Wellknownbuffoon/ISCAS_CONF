@@ -13,6 +13,10 @@ import pandas as pd
 
 def load_legacy_headroom():
     path = Path(__file__).parent/'legacy_reference'/'headroom_original.py'
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Analytical analysis unavailable: required original equations are missing: {path}. "
+            "Restore the original reference file; no replacement analytical results were generated.")
     spec = importlib.util.spec_from_file_location('original_headroom',path)
     mod=importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
