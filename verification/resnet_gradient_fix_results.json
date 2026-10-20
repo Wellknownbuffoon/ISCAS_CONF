@@ -1,0 +1,58 @@
+{
+  "tests_run": 8,
+  "passed": 7,
+  "failed": 0,
+  "not_executed": 1,
+  "skipped": [
+    [
+      "test_07_gpu_regression_is_not_claimed_on_cpu (__main__.GradientFixTests.test_07_gpu_regression_is_not_claimed_on_cpu)",
+      "CUDA not available here; notebook preflight runs the regression on the actual GPU"
+    ]
+  ],
+  "torch": "2.10.0+cpu",
+  "cuda_available": false,
+  "full_training": "NOT EXECUTED",
+  "data": "small synthetic fixtures",
+  "measurements": {
+    "native_weak_scale_reproduction": {
+      "loss": 2.9657685445272364e-06,
+      "all_gradient_entries_finite": true,
+      "original_fp32_norm": "inf",
+      "float64_norm": 1.0882664692593338e+31,
+      "clipped_norm": 0.8000000083847112,
+      "analogadam_updated_weights": true
+    },
+    "mlp_resume": {
+      "completed_epochs": 2,
+      "optimizer_steps": 2,
+      "epoch2_dar": 0.014062006957828999,
+      "bit_identical_to_uninterrupted": true
+    },
+    "resnet32_resume": {
+      "completed_epochs": 2,
+      "optimizer_steps": 2,
+      "epoch2_dar": 0.017122557386755943,
+      "bit_identical_to_uninterrupted": true
+    },
+    "legacy_import": {
+      "source_files_unchanged": true,
+      "copied_files": 3,
+      "resume_epoch_preserved": 1,
+      "foreign_data_rejected": true
+    },
+    "real_original_resnet_import": {
+      "old_source_hash_verified": true,
+      "old_checkpoint_imported_without_changing_source_files": true,
+      "continued_from_epoch": 2,
+      "epochs_completed": 2,
+      "steps_total": 2,
+      "completed_fp32_and_hwa_reused": true
+    }
+  },
+  "original_notebook_sha256": "1e50373f1c6556bc7b2ecf3f9eee14bc48d66271aae2f9e6da0c0fabf1204664",
+  "fixed_notebook_sha256": "5fbcbf6c6798d4952b83add422a5bb27a18bc654b5c7a05f2f7aec4ae818e499",
+  "all_notebook_code_cells_compile": true,
+  "scientific_model_and_pcm_cells_unchanged": true,
+  "historical_embedded_outputs_unchanged": true,
+  "full_stages_disabled_by_default": true
+}
