@@ -1,6 +1,6 @@
-# HWA and NSR worker notebook repairs
+# Parallel worker notebook repairs
 
-The two uploaded workers had incompatible training settings for the coordinator's
+The uploaded workers had incompatible training settings for the coordinator's
 current `driftslice_iscas_colab_resnet32_cifar10_v2` run. They also retained the
 zero-filter transfer diagnostic that stopped the coordinator.
 
@@ -18,6 +18,8 @@ same Config and scientific code as `DriftSlice_ISCAS_P0_coordinator_FIXED.ipynb`
 The only code-cell differences are their execution controls and model assignments:
 
 - `DriftSlice_ISCAS_P1_worker_HWA_FIXED.ipynb`: worker for `PCM-HWA` and `FP32-Direct`.
+- `DriftSlice_ISCAS_P2_worker_DAR_FIXED.ipynb`: worker for `PCM-DAR-HWA`.
+- `DriftSlice_ISCAS_P3_worker_DriftAttention_FIXED.ipynb`: worker for `PCM-DriftAttention-HWA`.
 - `DriftSlice_ISCAS_P4_worker_NSR_FIXED.ipynb`: worker for `PCM-NSR-HWA`.
 
 The transfer diagnostic follows
@@ -55,7 +57,7 @@ code. Embedded notebook outputs are preserved as historical outputs.
 
 ## Verification
 
-Sixteen CPU tests passed across the two workers; two CUDA tests were skipped in
+Sixteen CPU tests passed across the HWA/NSR pair; two CUDA tests were skipped in
 this workspace without a GPU. The tests use real AIHWKit 1.1.0 and PyTorch 2.10.0
 with synthetic tensors. They exercise:
 
@@ -88,3 +90,37 @@ python tests/test_worker_notebooks.py --out /tmp/new-worker-test-folder \
 
 Original-file arguments are optional; they enable the comparison against the
 uploaded protocol. Results are in `verification/worker_notebook_fix_results.json`.
+
+### DAR and DriftAttention verification
+
+The P2 and P3 notebooks received the same Config alignment and transfer repairs.
+Their losses, optimizers, attention mechanism, model assignments and scientific
+training/PCM definitions match the coordinator. No checkpoint migration was needed
+or added. Compatible coordinator checkpoints are reused; checkpoints from the
+uploaded workers' old protocol still fail compatibility checks.
+
+Sixteen additional CPU tests passed for P2/P3, with two CUDA tests skipped. In each
+method, a two-epoch synthetic ResNet fixture with collapsed filters performs real
+AnalogAdam updates and a positive epoch-two DAR-containing loss. Interruption after
+epoch one followed by resume yields identical histories and final weights to an
+uninterrupted run. For DriftAttention, the rotating checkpoint's gate weights,
+gate Adam moments, analog optimizer and scheduler states also match exactly; gate
+Adam has completed two steps with finite moments. Completed models are loaded
+without retraining or checkpoint rewrites. The same corruption, Config/fingerprint,
+model ownership and manifest checks described above pass for both new workers.
+
+The attention gate remains the original training-only module; its resume state is
+stored in rotating training checkpoints and is not added to deployment checkpoints.
+No full CIFAR training, retention accuracy, GPU execution or actual Drive checkpoint
+validation was performed in this workspace. Historical embedded outputs remain
+labeled as historical. All code cells in both new notebooks compile.
+
+```bash
+python tests/test_worker_notebooks.py --workers DAR DriftAttention \
+  --out /tmp/new-dar-attention-test-folder \
+  --original-dar /path/to/uploaded/DriftSlice_ISCAS_P2_worker_DAR.ipynb \
+  --original-attention /path/to/uploaded/DriftSlice_ISCAS_P3_worker_DriftAttention.ipynb
+```
+
+Results are in `verification/dar_attention_worker_fix_results.json`. To test all
+four corrected notebooks, pass `--workers HWA DAR DriftAttention NSR`.

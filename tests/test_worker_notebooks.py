@@ -1,6 +1,6 @@
-"""Validate the two workers against the corrected coordinator, using synthetic CPU fixtures.
+"""Validate worker notebooks against the corrected coordinator, using synthetic CPU fixtures.
 
-Runs inherited zero-row/corruption tests plus real interrupted HWA/NSR training.
+Runs inherited zero-row/corruption tests plus real interrupted training for each selected method.
 No notebook installation, Drive, CIFAR downloads or full experiment cells execute.
 """
 import argparse
@@ -107,8 +107,23 @@ class WorkerTests(base.TransferTests):
         a = r.torch_load(resumed/f'{method}_final.pt')
         b = r.torch_load(reference/f'{method}_final.pt')
         self.assertEqual(r.state_dict_hash(a['model']), r.state_dict_hash(b['model']))
-        if method == r.NSR:
+        if method in (r.NSR, r.DAR, r.ATT):
             self.assertGreater(pack['history'][1]['train_extra'], 0)
+        gate_resume_verified = False
+        if method == r.ATT:
+            # The gate is training-only, so its continuation state lives in the rotating
+            # training checkpoint rather than the deployment checkpoint.
+            a_training, _ = r.load_rotating(resumed/f'{method}_training.pt')
+            b_training, _ = r.load_rotating(reference/f'{method}_training.pt')
+            for key in ('gate', 'gate_optimizer', 'optimizer', 'scheduler'):
+                self.assertIsNotNone(a_training[key])
+                self.assertEqual(r.state_dict_hash(a_training[key]), r.state_dict_hash(b_training[key]), key)
+            self.assertTrue(a_training['gate_optimizer']['state'])
+            for state in a_training['gate_optimizer']['state'].values():
+                self.assertEqual(int(state['step']), 2)
+                self.assertTrue(torch.isfinite(state['exp_avg']).all())
+                self.assertTrue(torch.isfinite(state['exp_avg_sq']).all())
+            gate_resume_verified = True
         before = {p.name: p.read_bytes() for p in resumed.glob('*.pt')}
         train, val = loaders()
         with patch.object(r, 'transfer_pretrained_resnet_to_analog', side_effect=AssertionError('completed model retrained')):
@@ -118,6 +133,8 @@ class WorkerTests(base.TransferTests):
         MEASUREMENTS['actual_training'] = {'method': method, 'epochs': 2, 'optimizer_steps': 2,
             'resume_bit_identical_to_uninterrupted': True, 'completed_checkpoint_not_retrained_or_rewritten': True,
             'epoch2_extra_loss': pack['history'][1]['train_extra']}
+        if method == r.ATT:
+            MEASUREMENTS['actual_training']['gate_and_optimizer_resume_bit_identical'] = gate_resume_verified
 
     def test_09_worker_manifest_read_only_and_model_ownership(self):
         r = self.r
@@ -165,16 +182,25 @@ if __name__ == '__main__':
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--original-hwa', type=Path)
     parser.add_argument('--original-nsr', type=Path)
+    parser.add_argument('--original-dar', type=Path)
+    parser.add_argument('--original-attention', type=Path)
+    parser.add_argument('--workers', nargs='+', choices=('HWA', 'DAR', 'DriftAttention', 'NSR'),
+                        default=('HWA', 'NSR'))
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=False)
     report = {'aihwkit': __import__('aihwkit').__version__, 'torch': torch.__version__,
               'cuda_available': torch.cuda.is_available(), 'workers': {}}
     success = True
-    for tag, models, original in [('HWA', ('PCM-HWA', 'FP32-Direct'), args.original_hwa),
-                                  ('NSR', ('PCM-NSR-HWA',), args.original_nsr)]:
+    cases = {
+        'HWA': ('P1_worker_HWA', ('PCM-HWA', 'FP32-Direct'), args.original_hwa),
+        'DAR': ('P2_worker_DAR', ('PCM-DAR-HWA',), args.original_dar),
+        'DriftAttention': ('P3_worker_DriftAttention', ('PCM-DriftAttention-HWA',), args.original_attention),
+        'NSR': ('P4_worker_NSR', ('PCM-NSR-HWA',), args.original_nsr),
+    }
+    for tag in args.workers:
+        prefix, models, original = cases[tag]
         base.OUT = args.out/tag
         base.OUT.mkdir()
-        prefix = 'P1_worker_HWA' if tag == 'HWA' else 'P4_worker_NSR'
         base.NOTEBOOK = ROOT/f'DriftSlice_ISCAS_{prefix}_FIXED.ipynb'
         ORIGINAL = original
         WorkerTests.expected_models = models

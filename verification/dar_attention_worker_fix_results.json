@@ -1,0 +1,90 @@
+{
+  "aihwkit": "1.1.0",
+  "torch": "2.10.0+cpu",
+  "cuda_available": false,
+  "workers": {
+    "DAR": {
+      "tests_run": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "measurements": {
+        "native_resnet_zero_rows": {
+          "old_false_failure_error": 0.800000011920929,
+          "new_mapping_max_error": 5.960464477539063e-08,
+          "zero_rows": 37,
+          "analog_layers": 34
+        },
+        "saved_checkpoint_rechecked_without_rewrite": true,
+        "coordinator_fingerprints": {
+          "mlp": {
+            "train": "33969b2d078916ea44c890d8e8654a6cd1d922fe06c5ebd816c332ef391b2d1e",
+            "retention": "c2d6c21dadd9c377aee59c1d60707a80a835a612a4e6c2900b6e45310eae00d1",
+            "ablation": "b40669d043638945e3f9f4669a52d65a3c377afdb6314310219ae55a375170ea",
+            "diagnostics": "11786c74cea58ba188433a84bb087621fa318ca16a3d50619f67ffa1b1a95d16"
+          },
+          "resnet32": {
+            "train": "e5c93d1da3e52fa71e82fb8b0f5a34b333f78b2c17ac29d2380bb004f6ad4ce4",
+            "retention": "75b9d92339cb5612d0b3efd0cd98c4dcaa8baf30712e8e5a8ae94b6c0c6b0e05",
+            "ablation": "5b6f5df75f9ea6c3ac78271a3f78906a23af30ddd16d66cb8497148ed497d128",
+            "diagnostics": "639a1201844fd87ad38fdbacf0016baedd1efdf6b6bee641998bd323bedb3876"
+          }
+        },
+        "assigned_models": [
+          "PCM-DAR-HWA"
+        ],
+        "actual_training": {
+          "method": "PCM-DAR-HWA",
+          "epochs": 2,
+          "optimizer_steps": 2,
+          "resume_bit_identical_to_uninterrupted": true,
+          "completed_checkpoint_not_retrained_or_rewritten": true,
+          "epoch2_extra_loss": 0.017082391306757927
+        },
+        "worker_manifest_unchanged_and_foreign_fingerprint_rejected": true
+      }
+    },
+    "DriftAttention": {
+      "tests_run": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "measurements": {
+        "native_resnet_zero_rows": {
+          "old_false_failure_error": 0.800000011920929,
+          "new_mapping_max_error": 5.960464477539063e-08,
+          "zero_rows": 37,
+          "analog_layers": 34
+        },
+        "saved_checkpoint_rechecked_without_rewrite": true,
+        "coordinator_fingerprints": {
+          "mlp": {
+            "train": "33969b2d078916ea44c890d8e8654a6cd1d922fe06c5ebd816c332ef391b2d1e",
+            "retention": "c2d6c21dadd9c377aee59c1d60707a80a835a612a4e6c2900b6e45310eae00d1",
+            "ablation": "b40669d043638945e3f9f4669a52d65a3c377afdb6314310219ae55a375170ea",
+            "diagnostics": "11786c74cea58ba188433a84bb087621fa318ca16a3d50619f67ffa1b1a95d16"
+          },
+          "resnet32": {
+            "train": "e5c93d1da3e52fa71e82fb8b0f5a34b333f78b2c17ac29d2380bb004f6ad4ce4",
+            "retention": "75b9d92339cb5612d0b3efd0cd98c4dcaa8baf30712e8e5a8ae94b6c0c6b0e05",
+            "ablation": "5b6f5df75f9ea6c3ac78271a3f78906a23af30ddd16d66cb8497148ed497d128",
+            "diagnostics": "639a1201844fd87ad38fdbacf0016baedd1efdf6b6bee641998bd323bedb3876"
+          }
+        },
+        "assigned_models": [
+          "PCM-DriftAttention-HWA"
+        ],
+        "actual_training": {
+          "method": "PCM-DriftAttention-HWA",
+          "epochs": 2,
+          "optimizer_steps": 2,
+          "resume_bit_identical_to_uninterrupted": true,
+          "completed_checkpoint_not_retrained_or_rewritten": true,
+          "epoch2_extra_loss": 0.017166823148727417,
+          "gate_and_optimizer_resume_bit_identical": true
+        },
+        "worker_manifest_unchanged_and_foreign_fingerprint_rejected": true
+      }
+    }
+  }
+}
