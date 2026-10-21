@@ -27,6 +27,9 @@ MEASUREMENTS = {}
 def load_runtime(path, destination):
     n = json.loads(Path(path).read_text())
     indices = [4, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 38, 42]
+    # Worker copies omit the coordinator's empty cell after its title.
+    if n['cells'][3]['cell_type'] == 'code' and 'EXECUTION CONTROL' in ''.join(n['cells'][3]['source']):
+        indices = [i - 1 for i in indices]
     parts = ['from __future__ import annotations\n']
     for i in indices:
         parts.append(''.join(n['cells'][i]['source']).replace('from __future__ import annotations\n', ''))
