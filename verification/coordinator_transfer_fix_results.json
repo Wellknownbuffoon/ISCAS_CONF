@@ -1,0 +1,32 @@
+{
+  "aihwkit": "1.1.0",
+  "torch": "2.10.0+cpu",
+  "cuda_available": false,
+  "tests_run": 7,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 1,
+  "measurements": {
+    "native_resnet_zero_rows": {
+      "old_false_failure_error": 0.800000011920929,
+      "new_mapping_max_error": 5.960464477539063e-08,
+      "zero_rows": 37,
+      "analog_layers": 34
+    },
+    "saved_checkpoint_rechecked_without_rewrite": true,
+    "unchanged_stage_fingerprints": {
+      "mlp": {
+        "train": "95ff06d6b85db9e0846a32eccb9361f7fc70958c97379b9326534227730cd501",
+        "retention": "48811328fb19fd60e2f84eb6507c67ab2a20840951a07d84043080ccf9b5a676",
+        "ablation": "a41343e7b1c1ec91e18ef72c2a07c1a8bc430252f4b64f1174fc7170c21feee2",
+        "diagnostics": "810936c8f78e58a18f29400dc2080f79cf0c706fb37fddd2a7afb22d93325523"
+      },
+      "resnet32": {
+        "train": "f11a2724241a5e5998f59295f3de4b0f773b01d039b25d032debacef577dd154",
+        "retention": "c9d7c31aa988dba26f652a4f856f540451545a1c1623f9fbb4b18ecde1aeae21",
+        "ablation": "c8df52e600827b6428ed874ff76c2b1794c204434643f7ed7cbe57e1b7eb5aaf",
+        "diagnostics": "5d649cda1c970fbe812e56decc8ac4c42db6588ef22a1b05e5fb5ce49075dc77"
+      }
+    }
+  }
+}
