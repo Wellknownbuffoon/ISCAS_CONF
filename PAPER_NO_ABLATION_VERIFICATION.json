@@ -1,0 +1,21 @@
+{
+  "tests_passed": 7,
+  "tests_failed": 0,
+  "scope": "CPU synthetic-record export verification; no actual user Drive data or GPU inference",
+  "aihwkit_version": "1.1.0",
+  "validated": [
+    "All five methods exported with complete synthetic training and retention",
+    "No ablation or inference runner invoked",
+    "Checkpoint source bytes preserved",
+    "Missing retention prevents a complete-paper export",
+    "Corrupted checkpoint content hash rejected",
+    "Foreign shard model identity rejected",
+    "Invalid GDC NaN propagated instead of averaged away",
+    "Existing optional mechanism diagnostics exported without computation",
+    "Generated notebook retains all scientific definitions and disables experiment execution"
+  ],
+  "source_sha256": {
+    "paper_no_ablation_export.py": "d7f39edd56e3556f24ab0b825269cf754c88b98f1758f6c31eeddd4186f9357c",
+    "DriftSlice_ISCAS_P0_coordinator_PAPER_NO_ABLATION.ipynb": "183c70ae8da1b6d5bfb214edcda9e7c2dc028c339d1f9afaaa5973a3df2bb791"
+  }
+}
