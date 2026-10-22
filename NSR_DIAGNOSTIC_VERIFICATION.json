@@ -1,0 +1,19 @@
+{
+  "aihwkit": "1.1.0",
+  "torch": "2.10.0+cpu",
+  "device": "cpu",
+  "fixture": "Synthetic 2-epoch ResNet-32 checkpoints; not user's trained weights",
+  "batches": 4,
+  "layers_per_batch": 34,
+  "nonzero_nsr_gradients": true,
+  "gradient_norm_matches_actual_loss_backward_and_native_clipping": true,
+  "reference_total_grad_norm": 14.113999366760254,
+  "measured_total_grad_norm": 14.113998896335678,
+  "rng_preserved": true,
+  "checkpoint_bytes_preserved": true,
+  "config_preserved": true,
+  "batchnorm_restoration_verified": true,
+  "corrupted_checkpoint_rejected": true,
+  "no_functions_or_classes_added_to_notebook": true,
+  "gpu_execution_tested": false
+}
