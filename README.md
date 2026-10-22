@@ -1,5 +1,8 @@
 # ISCAS_CONF
 
+For the already-trained parallel ResNet run, use the [retention-only workflow](RETENTION_ONLY.md)
+to export test accuracy versus retention time without full ablation or mechanism diagnostics.
+
 AIHWKit 1.1.0 MNIST FP32 → AnalogAdam hardware-aware training → PCM retention study.
 
 Start with [the audit report](AUDIT_REPORT.md) for the training protocol, native API comparisons, corrected calibration baselines, measured transfer errors, prior-result limitations, and lightweight reproduction commands. Automated tests are in [tests/test_pipeline.py](tests/test_pipeline.py); [tests/validate_smoke.py](tests/validate_smoke.py) validates a separate smoke run without modifying its artifacts.

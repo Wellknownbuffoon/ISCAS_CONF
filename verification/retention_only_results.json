@@ -1,0 +1,23 @@
+{
+  "tests_run": 6,
+  "errors": 0,
+  "failures": 0,
+  "measurements": {
+    "five_notebooks": {
+      "P0_coordinator": "Config, stages, scientific functions and smoke scope verified",
+      "P1_worker_HWA": "Config, stages, scientific functions and smoke scope verified",
+      "P2_worker_DAR": "Config, stages, scientific functions and smoke scope verified",
+      "P3_worker_DriftAttention": "Config, stages, scientific functions and smoke scope verified",
+      "P4_worker_NSR": "Config, stages, scientific functions and smoke scope verified"
+    },
+    "complete_export": {
+      "records": 576,
+      "mean_accuracy_pct": 66.0,
+      "sd_across_folds_pp": 5.0,
+      "plots_png_pdf": 8,
+      "checkpoint_and_shard_bytes_unchanged": true
+    }
+  },
+  "cuda_available": false,
+  "full_training_or_retention_run": false
+}
