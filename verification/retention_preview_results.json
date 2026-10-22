@@ -1,0 +1,20 @@
+{
+  "tests_run": 2,
+  "errors": 0,
+  "failures": 0,
+  "skipped": 0,
+  "cuda_available": false,
+  "measurements": {
+    "all_four_workers": "Scientific functions, Config, stage fingerprints and smoke scope unchanged",
+    "native_preview": {
+      "records": 48,
+      "planned_realizations": 30,
+      "preview_realizations": 1,
+      "bit_identical_to_native_retention": true,
+      "cached_result_not_recomputed": true,
+      "other_realization_and_checkpoint_bytes_unchanged": true,
+      "config_and_fingerprints_unchanged": true,
+      "full_run_status_complete": false
+    }
+  }
+}

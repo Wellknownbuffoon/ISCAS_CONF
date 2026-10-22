@@ -2,6 +2,8 @@
 
 For the already-trained parallel ResNet run, use the [retention-only workflow](RETENTION_ONLY.md)
 to export test accuracy versus retention time without full ablation or mechanism diagnostics.
+For earlier curves using fewer PCM realizations, use the separately labeled
+[retention preview](RETENTION_PREVIEW.md), which preserves the full run and trained checkpoints.
 
 AIHWKit 1.1.0 MNIST FP32 → AnalogAdam hardware-aware training → PCM retention study.
 
