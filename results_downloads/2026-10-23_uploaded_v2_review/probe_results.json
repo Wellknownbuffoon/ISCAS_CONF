@@ -1,0 +1,82 @@
+{
+  "scope": "Native synthetic CPU probes; no user checkpoint, Drive, datasets, setup, full training or GPU run executed",
+  "all_code_cells_compile": true,
+  "retention_entry_failure": {
+    "type": "NameError",
+    "message": "name 'verifszn\u0308y_retention_grid' is not defined"
+  },
+  "configuration_differences": {
+    "transfer_max_val_drop_pp": {
+      "uploaded": 1.0,
+      "completed_worker": 0.25
+    },
+    "batch_size": {
+      "uploaded": 256,
+      "completed_worker": 64
+    },
+    "test_batch_size": {
+      "uploaded": 512,
+      "completed_worker": 128
+    },
+    "epochs": {
+      "uploaded": 154,
+      "completed_worker": 100
+    },
+    "train_repeats": {
+      "uploaded": 5,
+      "completed_worker": 3
+    },
+    "strict_154_epochs": {
+      "uploaded": true,
+      "completed_worker": false
+    }
+  },
+  "training_fingerprint_differs_from_completed_worker": true,
+  "pcm_code_hash_matches_completed_worker": true,
+  "nsr_gradient_route": {
+    "same_scalar_loss": true,
+    "gradients_identical": false,
+    "per_row_scales": [
+      0.019358258694410324,
+      0.20316345989704132,
+      0.8542665839195251
+    ],
+    "native_gradient_l2": 0.7018589013865429,
+    "v2_bypassed_gradient_l2": 0.0006070580634143679,
+    "native_equals_bypassed_divided_by_scale_squared": true,
+    "bypass_only_in_resnet_trainer": true
+  },
+  "fp32_norm_overflow": {
+    "entries_finite": true,
+    "error": "Non-finite gradient norm at synthetic finite-entry norm overflow. Largest contributions: weight: nonfinite=0, max|finite grad|=3e+20.",
+    "fp64_norm": 4.242640772145527e+20
+  },
+  "native_tiny_resnet_training": {
+    "PCM-HWA": {
+      "resume_model_bit_identical": true,
+      "resume_histories_identical": true,
+      "optimizer_steps": 4,
+      "epochs_completed": 2,
+      "best_restore_accuracy_difference_pp": 0.0,
+      "first_physical_weight_update": 0.0010000020265579224,
+      "positive_nsr_penalty": null
+    },
+    "PCM-NSR-HWA": {
+      "resume_model_bit_identical": true,
+      "resume_histories_identical": true,
+      "optimizer_steps": 4,
+      "epochs_completed": 2,
+      "best_restore_accuracy_difference_pp": 0.0,
+      "first_physical_weight_update": 0.0010000020265579224,
+      "positive_nsr_penalty": true
+    }
+  },
+  "saved_gpu_errors": [
+    {
+      "cell_index": 44,
+      "ename": "ScientificCheckError",
+      "evalue": "Essential scientific check FAILED: Best-validation checkpoint restoration: PCM-HWA: selected epoch 150 (recomputed 150) of 154; re-eval |\u0394acc|=2.27e-01 pp"
+    }
+  ],
+  "original_upload_unchanged": true
+}
