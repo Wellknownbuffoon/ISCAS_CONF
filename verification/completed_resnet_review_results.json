@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "checks": {
+    "all_noncontrol_code_cells_identical_to_completed_worker": true,
+    "code_cells_compile": true,
+    "saved_outputs_cleared": true,
+    "old_typo_absent": true,
+    "full_stages_and_smoke_disabled": true,
+    "all_role_selected": true,
+    "resnet32_configuration_identical": true,
+    "resnet32_all_stage_fingerprints_identical": true,
+    "mlp_configuration_identical": true,
+    "mlp_all_stage_fingerprints_identical": true,
+    "completed_resnet_protocol_preserved": true,
+    "hook_bypass_absent": true,
+    "native_nsr_loss_and_gradients_identical": true,
+    "explicit_all_role_opens_all_primary_methods_and_direct": true
+  },
+  "stage_identity_checks": {
+    "resnet32": {
+      "train": "8a3fee4a8d5ffe38ec07489b9d84dd2e182d55dee8ae11ebc93a3701be490318",
+      "retention": "12e0b9e3e605f19a89da38f3d65164d3be74766dd9b821563c190b393c63f246",
+      "ablation": "75516205127681d0b8c3f6981c56b3f54a00e0ba29b76b2f419c03be56b6becc",
+      "diagnostics": "ea5497cb591cce5e75a0ec266bf468928290cf6831a92ab21489dc3dc07de020"
+    },
+    "mlp": {
+      "train": "f7c59462ea7876b296cd28835d2d857631fa952d10189c4cc0634ca125a6cbe8",
+      "retention": "7f9c2aaa52bfff170bc865882659707ad9d837ae5fff7f0e067448c933cb08fc",
+      "ablation": "16cbdb49ffeea4a11d22618a1ba916db64af938b9854207f0bca741a376f79bf",
+      "diagnostics": "217423510ba85dbf017cdd5838364fe59fb80eb7eb133f0a4839b6874e270e6a"
+    }
+  },
+  "scope": "Native AIHWKit 1.1.0 CPU parity and configuration checks against completed P4; no actual dataset, checkpoint or GPU run",
+  "old_154_epoch_gpu_restore_failure": "Not repaired, imported or relabeled; remains a separate experiment",
+  "notebook": "DriftSlice_ISCAS_COMPLETED_RESNET_REVIEW.ipynb",
+  "notebook_sha256": "271c0b229f10f3c1bb13639422ef7baf795a10a88e238e7daec7652e60698254",
+  "markdown_updated_to_completed_resnet_protocol": true
+}
