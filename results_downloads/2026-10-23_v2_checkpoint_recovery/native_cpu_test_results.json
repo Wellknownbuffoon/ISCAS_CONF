@@ -1,0 +1,10 @@
+{
+  "scope": "Native AIHWKit 1.1.0 synthetic CPU; no user-model/GPU claim",
+  "native_full_state_load_and_three_seeded_validations": true,
+  "stale_metadata_repaired_only_after_validation_with_exact_byte_backup": true,
+  "real_validation_mismatch_stops_without_modifying_checkpoint": true,
+  "corrupt_model_identity_stops_without_modifying_checkpoint": true,
+  "changed_rpu_configuration_stops_without_modifying_checkpoint": true,
+  "wrong_experiment_stops_without_modifying_checkpoint": true,
+  "scientific_fingerprints_unchanged": true
+}

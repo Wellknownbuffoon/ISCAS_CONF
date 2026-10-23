@@ -1,0 +1,22 @@
+[
+  {
+    "url": "https://raw.githubusercontent.com/IBM/aihwkit/v1.1.0/src/aihwkit/simulator/tiles/inference_torch.py",
+    "sha256": "4d600686c3f6940acb69dd3f86a03213feba137c3b05e527a548e13cbe77dc30",
+    "installed_source_matches": true
+  },
+  {
+    "url": "https://raw.githubusercontent.com/IBM/aihwkit/v1.1.0/src/aihwkit/simulator/tiles/base.py",
+    "sha256": "788be3c8c36c91cd4a81260b1b9bd629199a187b1b99ba0010fe29a0c0def7da",
+    "installed_source_matches": true
+  },
+  {
+    "url": "https://raw.githubusercontent.com/IBM/aihwkit/v1.1.0/src/aihwkit/simulator/tiles/torch_tile.py",
+    "sha256": "da0d1a28e5efd8310e66a928b3a670d6f385035e060cf34b145e3aae580ec3d4",
+    "installed_source_matches": true
+  },
+  {
+    "url": "https://raw.githubusercontent.com/IBM/aihwkit/v1.1.0/src/aihwkit/optim/analog_optimizer.py",
+    "sha256": "28eba1579843b452aa0015dfb4272c49b0d98a797771e37bd47a90611db329b0",
+    "installed_source_matches": true
+  }
+]

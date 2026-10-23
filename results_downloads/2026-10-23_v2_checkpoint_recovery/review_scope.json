@@ -1,0 +1,16 @@
+{
+  "uploaded_notebook_sha256": "fbadb9d9d79aa74e30a8265e8dce4809cec6a80e800c8ba76333f56adf00338d",
+  "uploaded_error_log_sha256": "e8b20c105fc495438a5d26b1fe56fe86ee8e8b8323c9361bfe9374d42bc30098",
+  "failure": {
+    "method": "PCM-HWA",
+    "fold": 0,
+    "selected_epoch": 150,
+    "completed_epochs": 154,
+    "stored_restoration_difference_pp": 0.2266666667,
+    "threshold_pp": 0.05,
+    "train_fingerprint_prefix": "1cb6defff3c3"
+  },
+  "actual_gpu_checkpoint_available": false,
+  "original_notebook_modified": false,
+  "scope": "Recovery helper for this uploaded v2 notebook, not a replacement experiment"
+}
