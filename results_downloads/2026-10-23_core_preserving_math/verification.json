@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "date": "2026-10-23",
+  "scope": "Mathematical arithmetic, source parity and native synthetic PCM screen; not a new user-network accuracy experiment",
+  "native_cpu_screen_reproduces_exactly": true,
+  "simulation_records": 2816,
+  "synthetic_distributions": 2,
+  "realizations_per_distribution": 128,
+  "parameter_settings": 11,
+  "nsr_and_driftslice_equations_changed": false,
+  "original_model_weights_changed": false,
+  "original_notebooks_changed": false,
+  "local_gpu_network_execution": false,
+  "results_table_derived_from_supplied_full_test_and_reference_validation_files": true
+}

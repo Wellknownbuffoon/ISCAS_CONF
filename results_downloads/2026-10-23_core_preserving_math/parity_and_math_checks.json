@@ -1,0 +1,41 @@
+{
+  "checks": {
+    "nsr_formula_ast_identical": true,
+    "class_indices_ast_identical": true,
+    "conductance_edges_ast_identical": true,
+    "apply_driftslice_ast_identical": true,
+    "reference__read_ast_identical": true,
+    "reference_gains_ast_identical": true,
+    "nsr_loss_bit_identical": true,
+    "nsr_gradients_bit_identical": true,
+    "gain_formula_B1_R64_K4": true,
+    "branchwise_class_correction_B1_R64_K4": true,
+    "persistent_state_unchanged_B1_R64_K4": true,
+    "gain_formula_B2_R64_K4": true,
+    "branchwise_class_correction_B2_R64_K4": true,
+    "persistent_state_unchanged_B2_R64_K4": true,
+    "gain_formula_B4_R256_K4": true,
+    "branchwise_class_correction_B4_R256_K4": true,
+    "persistent_state_unchanged_B4_R256_K4": true,
+    "gain_formula_B4_R256_K16": true,
+    "branchwise_class_correction_B4_R256_K16": true,
+    "persistent_state_unchanged_B4_R256_K16": true,
+    "gain_class_reference_count_and_log_time_arithmetic": true,
+    "no_gpu_or_user_model_accuracy_claimed": true,
+    "all_checks_pass": true
+  },
+  "native_environment": {
+    "torch": "2.10.0+cpu",
+    "aihwkit": "1.1.0",
+    "device": "cpu"
+  },
+  "five_year_log_ratio": 15.881030644303065,
+  "minimum_nominal_drift_sigma": 0.008,
+  "high_conductance_lognormal_relative_sd_approx": 0.12756265293661345,
+  "nsr_loss_value_on_synthetic_mlp": 0.0013240997213870287,
+  "important_existing_protocol_difference": "The uploaded full MLP defaults to nonnegative-only programming bounds; P4 additionally clips programmed conductance at gmax. Those policies are not changed or claimed identical.",
+  "source_hashes": {
+    "uploaded_mlp_notebook": "949257cc8b6ad98dc93f2c049d39f975cdea53274085bd56b8b852ae5cf7ae6d",
+    "worker_notebook": "42439a6300371f04a18861f0d55dfe8c1fead99726648276692d580ff3ea0521"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "core_changed": false,
+  "classification_model_evaluated_locally": false,
+  "full_nsr_ds_b1_initial_accuracy_pct": 89.88277777777778,
+  "full_nsr_ds_b1_five_year_accuracy_pct": 85.30433333333333,
+  "full_retention_drop_pp": 4.578444444444443,
+  "gap_to_90_pp": 4.695666666666668,
+  "required_initial_if_same_drop_pct": 94.57844444444446,
+  "nsr_minus_hwa_ds_b1_five_year_pp": 0.19711111111110804,
+  "nsr_minus_hwa_ci95_pp": [
+    -0.8528616523698861,
+    1.2470838745921022
+  ],
+  "reference_gain_mean": 2.1716527144114175,
+  "reference_gain_sd": 0.04448353888776411,
+  "reference_gain_cv": 0.020483725870423287,
+  "log_five_year_ratio": 15.881030644303065,
+  "high_conductance_individual_drift_cv_approx": 0.12756265293661345,
+  "rough_R64_to_R256_mse_change_pct": -1.885279092640968,
+  "validation_R64_initial_pct": 89.90666666666668,
+  "validation_R64_five_year_pct": 86.24666666666667,
+  "validation_R256_initial_pct": 90.04666666666667,
+  "validation_R256_five_year_pct": 86.42666666666666,
+  "validation_initial_gain_pp": 0.13999999999998636,
+  "validation_five_year_gain_pp": 0.1799999999999926,
+  "validation_retention_loss_reduction_pp": 0.04000000000000625,
+  "validation_five_year_loss_R64": 0.6751138696327805,
+  "validation_five_year_loss_R256": 0.6778181769778331,
+  "recommended_candidate": {
+    "B": 1,
+    "R": 256,
+    "K": 4,
+    "nsr_lambda": 0.1,
+    "gain_min": 0.5,
+    "gain_max": 3
+  },
+  "recommendation_scope": "Small validation-only resource change candidate; no demonstrated full-test gain and no support for a prediction above 90 percent",
+  "limitations": [
+    "Accuracy changes cannot be inferred quantitatively from weight MSE without network predictions/sensitivities.",
+    "The native PCM screen uses synthetic weight distributions, not user checkpoint weights.",
+    "The uploaded full MLP defaults to a different programmed-conductance upper-bound policy; its saved manifest was not supplied.",
+    "The 256-cell pilot has one training repetition and three device realizations; it is not a replacement for the complete full-test protocol."
+  ]
+}

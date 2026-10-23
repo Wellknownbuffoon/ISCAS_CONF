@@ -1,0 +1,24 @@
+{
+  "scope": "Native AIHWKit 1.1.0 PCM model; synthetic target weights, not trained-network accuracy",
+  "device": "cpu",
+  "torch": "2.10.0+cpu",
+  "realizations_per_distribution": 128,
+  "weights_per_realization": 513,
+  "distributions": [
+    "uniform",
+    "small_weight_heavy"
+  ],
+  "programming_noise_scale": 1.0,
+  "read_noise_scale": 1.0,
+  "drift_scale": 1.0,
+  "gmax_us": 25.0,
+  "reference_floor_us": 0.1,
+  "gain_min": 0.5,
+  "gain_max": 3.0,
+  "programming_bounds": "P4 existing [0,gmax] cap",
+  "t_s": 157788000.0,
+  "seed_root": 60000000,
+  "shared_main_devices_across_configurations": true,
+  "core_formula_changed": false,
+  "network_accuracy_evaluated": false
+}
