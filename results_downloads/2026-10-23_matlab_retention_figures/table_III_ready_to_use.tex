@@ -1,0 +1,17 @@
+\begin{table*}[t]
+\centering
+\caption{Drift robustness of HWA and NSR-HWA with identical DriftSlice B=1 compensation. Accuracy is in percent; improvements are percentage points relative to HWA.}
+\label{tab:nsr-drift-robustness}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llllrrrrrrrr}
+\toprule
+Model & Training & Compensation & $\lambda_{\mathrm{NSR}}$ & \multicolumn{4}{c}{Test Accuracy (\%)} & \multicolumn{4}{c}{Accuracy Improvement (pp)} \\
+\cmidrule(lr){5-8}\cmidrule(lr){9-12}
+ & & & & Final Test & Initial 20s & Final 5Y & Max-drop & 1h & 1d & 6M & 5Y \\
+\midrule
+ResNet-32 & Standard HWA & DS-B1 & -- & -- & \textbf{89.96} & 85.11 & 4.85 & -- & -- & -- & -- \\
+ResNet-32 & NSR-HWA & DS-B1 & .1 & -- & 89.88 & \textbf{85.30} & \textbf{4.58} & -0.04 & -0.10 & +0.03 & +0.20 \\
+\bottomrule
+\end{tabular}}
+\par\smallskip\footnotesize Final Test before PCM is not available in the supplied retention CSVs. Max-drop is initial 20s accuracy minus the minimum over the 12 retention times. Values average three training repetitions, each with 30 device realizations.
+\end{table*}

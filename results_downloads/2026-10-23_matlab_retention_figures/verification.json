@@ -1,0 +1,19 @@
+{
+  "data_scope": "Exact uploaded full-run CSVs used for supplied screenshots; no values digitized from images",
+  "training_repetitions": 3,
+  "device_realizations_per_repetition": 30,
+  "timestamp_count": 12,
+  "matched_fold_mean_records": 288,
+  "all_60_plotted_curve_points_match_reference": true,
+  "all_16_heatmap_triangle_values_match_reference": true,
+  "sample_sd_uses_n_minus_1": true,
+  "matlab_execution_performed": false,
+  "matlab_runtime_available": false,
+  "matlab_file_sha256": "5a427252db8dde6db72b29a2d7e9d140729708771e7e97ad514c7a9eb14c0005",
+  "matlab_syntax_parser": "tree-sitter-matlab 1.3.1",
+  "matlab_syntax_has_errors": false,
+  "table_III_computed_from_full_run": true,
+  "table_III_missing_final_test": "NaN / em dash; not inferred from retention accuracy",
+  "lambda_nsr": 0.1,
+  "lambda_source": "Uploaded checkpoint-diagnostic scope, training fingerprint 2115cc4e782c8b906d33c7668c676d104f8ac39a36b1efa84942296fd80ad355"
+}

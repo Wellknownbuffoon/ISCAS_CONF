@@ -1,0 +1,33 @@
+{
+  "reference_paper": "Temporal Drift-Regularization and Hyperparameter Optimization for Phase-Change Memory-based Neural Network Applications",
+  "adaptation": "Plot styles only; plotted data are the user full-run ResNet-32/CIFAR-10 results, not the reference paper results",
+  "full_run_methods": [
+    "FP32-Direct",
+    "PCM-HWA",
+    "PCM-NSR-HWA"
+  ],
+  "training_repetitions": 3,
+  "device_realizations_per_repetition": 30,
+  "timestamps_seconds": [
+    20.0,
+    60.0,
+    1800.0,
+    3600.0,
+    86400.0,
+    432000.0,
+    2592000.0,
+    15552000.0,
+    31557600.0,
+    63115200.0,
+    94672800.0,
+    157788000.0
+  ],
+  "error_definition": "100 minus accuracy, in percent",
+  "band_definition": "plus/minus twice the sample SD (ddof=1) across training-repetition means; not a 95 percent confidence interval",
+  "main_time_axis": "equally spaced labeled timestamp positions, matching the visual layout of reference Figure 2",
+  "alternative_time_axis": "logarithmic seconds, stored separately",
+  "heatmap_definition": "upper-right triangle: accuracy difference at 20s; lower-left triangle: accuracy difference at five years",
+  "hyperparameter_sweep_available": false,
+  "smoothing": false,
+  "official_test_tuning_performed": false
+}
