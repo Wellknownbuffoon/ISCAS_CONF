@@ -1,0 +1,18 @@
+\begin{table*}[t]
+\centering
+\caption{Drift robustness of baseline HWA + GDC-safe versus proposed HWA + DriftSlice. The HWA-trained checkpoints are held fixed. Accuracy is in percent; improvements are percentage points.}
+\label{tab:hwa-gdc-driftslice}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lllrrrrrrrr}
+\toprule
+Model & Training & Compensation & \multicolumn{4}{c}{Test Accuracy (\%)} & \multicolumn{4}{c}{Improvement over GDC-safe (pp)} \\
+\cmidrule(lr){4-7}\cmidrule(lr){8-11}
+ & & & Final Test & Initial 20s & Final 5Y & Max-drop & 1h & 1d & 6M & 5Y \\
+\midrule
+ResNet-32 & HWA & GDC-safe (baseline) & -- & 89.91 & 84.14 & 5.78 & -- & -- & -- & -- \\
+ResNet-32 & HWA & DriftSlice B=1 (proposed) & -- & \textbf{89.96} & \textbf{85.11} & \textbf{4.85} & +0.20 & +0.30 & +0.70 & +0.97 \\
+ResNet-32 & HWA & DriftSlice selected B (proposed) & -- & 89.96 & 85.07 & 4.88 & +0.20 & +0.28 & +0.67 & +0.94 \\
+\bottomrule
+\end{tabular}}
+\par\smallskip\footnotesize Same HWA-trained checkpoints; means across three training repetitions, each with 30 device realizations. Max-drop is initial 20s accuracy minus the minimum over all 12 retention times. Selected B uses validation data. Final Test before PCM is unavailable in the retention CSVs.
+\end{table*}

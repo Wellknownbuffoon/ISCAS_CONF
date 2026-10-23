@@ -1,0 +1,14 @@
+{
+  "comparison": "PCM-HWA training fixed; proposed DriftSlice minus GDC-safe baseline",
+  "source_fold_records_used": 108,
+  "training_repetitions": 3,
+  "device_realizations_per_repetition": 30,
+  "source_means_match_previous_full_run_summary": true,
+  "all_proposed_improvements_are_relative_to_hwa_gdc_safe": true,
+  "five_year_improvement_DS_B1_pp": 0.9699999999999989,
+  "five_year_improvement_DS_val_pp": 0.937333333333342,
+  "matlab_syntax_errors": false,
+  "matlab_execution_performed": false,
+  "preview_renderer": "Python matplotlib with same verified values",
+  "matlab_source_sha256": "32f0bba63229fb5b6575a9c58c2118aee5e07c73033ceca414ed1e271c0bf026"
+}
