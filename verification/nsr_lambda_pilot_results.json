@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "date_utc": "2026-10-23",
+  "environment": {"aihwkit": "1.1.0", "torch": "2.10.0+cpu", "device": "cpu"},
+  "tests": 3,
+  "checks": [
+    "Actual AnalogAdam physical-weight updates on native synthetic ResNet-32",
+    "Matched minibatch order across lambda=0, 0.1 and 1.0",
+    "Zero NSR extra loss for lambda=0; positive loss for positive lambda",
+    "Interrupted and uninterrupted model, optimizer, scheduler, best model, histories, validation records and loader RNG identical",
+    "Completed candidates do not retrain",
+    "Foreign pilot checkpoint rejected",
+    "Selection enforces five-year validation objective, 20-second guard and earliest-epoch tie rule",
+    "Native retention accuracy, loss and gain match at 20 seconds and five years",
+    "Original checkpoint bytes and Config unchanged; global torch RNG restored",
+    "Official test iterator forbidden"
+  ],
+  "limitations": [
+    "Synthetic fixtures are not user-trained models or estimates of research accuracy",
+    "Training/resume tests substitute deterministic validation scores to isolate optimizer reproducibility",
+    "Native retention inference tested independently against the original implementation",
+    "CUDA training and user checkpoint execution require the user's Colab runtime",
+    "Exploratory validation screen; no guarantee of 90 percent accuracy or NSR improvement"
+  ]
+}
