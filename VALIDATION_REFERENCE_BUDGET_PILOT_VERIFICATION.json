@@ -1,0 +1,11 @@
+{
+  "scope": "Native CPU AIHWKit 1.1.0 synthetic ResNet-32 fixture validation; not actual user model accuracy",
+  "tests_passed": 1,
+  "test": "tests/test_validation_reference_pilot.py",
+  "control_matches_original_native_retention_accuracy_loss_and_gain": true,
+  "checkpoints_and_config_preserved": true,
+  "global_cpu_rng_preserved": true,
+  "training_and_test_loader_evaluation_forbidden": true,
+  "actual_gpu_execution_tested": false,
+  "helper_source_sha256": "c1b8bb9f796097cbf96985f20b8cef130169c04e957e4b468e1b004809e054a3"
+}
