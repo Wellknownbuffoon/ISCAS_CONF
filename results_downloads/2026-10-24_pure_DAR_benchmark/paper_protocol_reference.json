@@ -1,0 +1,24 @@
+{
+  "title": "Drift-Aware Regularization for Long-Term Stability in Phase-Change Memory Based Neural Network Implementations",
+  "authors": [
+    "Adnan Haidar",
+    "Vasileios Ntinas",
+    "Ronald Tetzlaff"
+  ],
+  "venue": "2025 IEEE AICAS",
+  "doi": "10.1109/AICAS64808.2025.11173140",
+  "source_pdf_sha256": "14dc0f1c068e85c14d26df53b4a8b1130849a7d7e34d0bd9cea349f2e63f9538",
+  "figure_2_caption_page_3": "Classification error (a) without GDC, (b) with GDC",
+  "section_IV_B_page_3": "For comparison, performance was also evaluated using GDC across all methods.",
+  "paper_experiment": "Two-layer 784-250-10 MLP, MNIST; five training repetitions; 154 epochs",
+  "current_data_scope": "User ResNet-32/CIFAR-10 exports; three reported training repetitions; not the paper original result data",
+  "pure_DAR_mapping": {
+    "method": "PCM-DAR-HWA",
+    "compensation": "none"
+  },
+  "separate_GDC_DAR_mapping": {
+    "method": "PCM-DAR-HWA",
+    "compensation": "GDC-safe"
+  },
+  "GDC_note": "GDC-safe is the user implementation, not a claim of exact equivalence with the paper GDC implementation."
+}

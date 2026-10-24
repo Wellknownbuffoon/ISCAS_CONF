@@ -1,0 +1,17 @@
+{
+  "no_DAR_DriftSlice_in_any_input_or_output_csv": true,
+  "no_DAR_DriftSlice_curve_calls": true,
+  "pure_DAR_five_year_accuracy_pct": 10.06411111111111,
+  "DAR_GDC_safe_five_year_accuracy_pct": 84.46355555555556,
+  "DAR_raw_records_used": 2160,
+  "plot_aggregated_rows": 120,
+  "heatmap_comparisons": 10,
+  "table_rows": 8,
+  "all_selected_source_means_and_sample_sd_verified": true,
+  "all_table_entries_verified_against_fold_means": true,
+  "matlab_syntax_has_errors": false,
+  "matlab_execution_performed": false,
+  "preview_renderer": "Python matplotlib using the same validated numeric data",
+  "matlab_source_sha256": "6a44e3109f334cb0a85d6082d4c3f52fd63302aefe0dd26c5bd130319ab8699e",
+  "checkpoint_provenance": "No checkpoint/model fingerprints were supplied; identities follow CSV method labels."
+}
