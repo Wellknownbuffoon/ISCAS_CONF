@@ -1,0 +1,410 @@
+TRẢ LỜI 22 ĐIỂM KIỂM CHỨNG: DRIFTSLICE, NSR, DAR VÀ KẾT QUẢ RESNET
+Ngày lập: 24-10-2026. Ngôn ngữ: tiếng Việt. Đơn vị chênh lệch accuracy: điểm phần trăm (pp).
+
+PHẠM VI VÀ CÁCH ĐỌC
+Đây là bản trả lời theo mã nguồn và bằng chứng đã được cung cấp trong cuộc trao đổi, không phải chứng nhận rằng mọi lần chạy trên Drive hiện tại đều đã đúng. Không có GPU training/retention mới được thực hiện để viết tài liệu này.
+
+Có ba đối tượng PHẢI phân biệt:
+(A) Bộ ResNet-32/CIFAR-10 đã hoàn tất dùng để vẽ: HWA/NSR có history 100 epoch, 3 lần huấn luyện; mỗi lần có 30 PCM realizations và 12 mốc retention. Đây là nguồn của các accuracy và CI trong tài liệu.
+(B) Notebook monolithic “RESNET_AND_MLP_Full_Experiment_v2_fixed (1)” cấu hình 154 epoch/5 lần, có đường gradient khác. Không dùng cấu hình này để mô tả ngược bộ (A).
+(C) Các notebook P0–P4 đang thao tác trên Drive: log gần đây có lỗi file trong fold1 nhưng metadata fold=0, và file tên P3 lại chọn WORKER_MODELS=("PCM-NSR-HWA",). Tên notebook/thư mục và GPU PASS không đủ chứng minh model/fold đúng. Không tự suy ra rằng bộ CSV cũ bị sai từ lỗi mới, nhưng cũng không được bỏ qua kiểm tra identity của lần chạy mới.
+
+Mức bằng chứng:
+[MÃ NGUỒN] = có thể đọc trực tiếp trong notebook/AIHWKit.
+[DỮ LIỆU] = có CSV, history hoặc báo cáo chẩn đoán đã gửi và được tính lại.
+[CÒN THIẾU] = chưa có dữ liệu cần thiết để xác nhận. Không biến mục này thành PASS.
+Các kết quả chẩn đoán checkpoint là báo cáo do runtime xuất; chúng không đồng nghĩa với việc đã có toàn bộ checkpoint để tái chạy độc lập tại đây.
+
+A. EXECUTED CONFIGURATION — CẤU HÌNH THỰC THI
+
+MỤC 01. Epoch ResNet, learning-rate schedule, weight scale, learned scaling và chọn checkpoint
+[DỮ LIỆU + MÃ NGUỒN] Sáu history HWA/NSR có tổng cộng 600 dòng epoch: mỗi method/fold chạy 100 epoch HWA, 704 step/epoch, tổng 70.400 AnalogAdam steps. Config xuất trong pilot_scope.json ghi 30 epoch FP32 trước HWA, train batch 64, eval batch 128, ba lần huấn luyện. Số 30 FP32 có trong cấu hình; không đồng nhất nó với kiểm chứng độc lập đủ ba digital histories nếu chưa xuất các history đó. DAR được cấu hình cùng protocol 100 epoch; archive DAR mới chỉ có retention CSV, nên riêng CSV đó không xác nhận số epoch DAR đã thực thi.
+
+ResNet-32 có 34 analog conv/linear layers; BatchNorm, ReLU, residual adds, pooling và bias là digital. HWA dùng AnalogAdam, lr ban đầu 1e-3, max_lr=0.004, OneCycleLR bước theo từng minibatch, div_factor=4. Với mặc định PyTorch tương ứng: pct_start=0.3, cosine annealing, final_div_factor=1e4, nên minimum LR danh định là 1e-7. Đây không phải LR cố định. FP32 dùng Adam và OneCycleLR cùng initial/max LR. HWA: weight_decay=1e-4 áp dụng thủ công, decoupled, chỉ lên physical tile weights; optimizer groups đặt weight_decay=0. Gradient global L2 clip=0.8.
+
+RPU: omega=0.8, weight_scaling_columnwise=True, learn_out_scaling=True, out_scaling_columnwise=True; fixed weight clip ±1; WeightRemapType.NONE. “Columnwise” của API được dùng để có scale theo output channel/row của ma trận [out,in]. Input range học được, khởi tạo 3, init_from_data=100, init_std_alpha=3, decay=0.001, clamp input_range >=1e-3 sau update. get_scales() khi xuất snapshot là mapping scale × learned output scale; scale này không được mặc định coi cố định bằng omega.
+
+HWA checkpoint: cao nhất theo mean validation accuracy của 3 noisy reads; nếu accuracy bằng nhau thì chọn validation loss nhỏ hơn. Seed re-eval khớp epoch được chọn. FP32: chọn accuracy validation cao nhất, chỉ cập nhật khi tăng nghiêm ngặt. Dùng *_best_validation.pt để retention, không mặc định dùng *_final.pt. HWA best epochs theo fold0/1/2: 99/93/92; NSR: 81/96/84. Validation accuracy tương ứng ở phụ lục.
+
+Nguồn: Config, make_hwa_rpu, train_digital_resnet, train_hwa_resnet, validation_score; NSR_training_audit.zip và NSR_checkpoint_diagnostics.zip. Không dùng số 154/5 của notebook khác để viết phần thực nghiệm ResNet này.
+
+MỤC 02. Config hoàn tất, seeds, simulator version và code revision
+[DỮ LIỆU] Pilot đã gửi chứa original_config và original_fingerprints, không chỉ tên run. Run ID: driftslice_iscas_colab_resnet32_cifar10_v2. Môi trường xuất: AIHWKit 1.1.0, Torch 2.10.0+cu128, Python 3.12. History ghi Tesla T4 cho nhiều lần chạy; NSR fold2 chuyển từ T4 sang RTX PRO 6000 Blackwell tại epoch49. Do đó không được nói toàn bộ training diễn ra trên một GPU duy nhất.
+
+Train fingerprint: 2115cc4e782c8b906d33c7668c676d104f8ac39a36b1efa84942296fd80ad355
+Retention fingerprint: 631c8db6153240a36f26506a8eec1660d8e5dd1c2f1e9149dd69dbe242a61fa9
+Train source hash: 918af3658cfb361dee882ab364f5bfeda8965ab9c290ad36ca8215f714e35fea
+PCM/retention source hash: 9ce803fca4eeaf32401f6aa650fc5726528bbe9e8811dae3636ea8293d54d1f0
+Notebook all-code hash: f9129e113257414047dfe5aab74c089aec54d6aab5041b2cfde3cbf09ae8b540
+CODE_REVISION trong mã: “2026-10-17-colab-v4 (from driftslice_core 2026-10-15-v3-fp32-direct-hwa-selection)”. Đây là chuỗi version tự khai báo, KHÔNG phải Git commit SHA. Git SHA chính xác của phiên đã thực thi chưa có trong các artifact trên; không được lấy commit mới của file vẽ rồi gán thành training revision.
+
+Seeds: base=42; fold k dùng seed=42+k, tức 42/43/44. Split generator cũng 42+k. HWA loader seed=1042+k; FP32 loader seed=3042+k. Augmentation: 70.000.000 + seed + fold*1.000.000 + phase*500.000 + epoch*1.000 + batch; phase0=FP32, phase1=HWA, dùng chung giữa HWA methods. Retention root=42 + fold*1.000.000 + realization*10.000. Program main layer i: root+10+101*(i+1); reference bank: root+30. Read/evaluation seeds nêu ở mục 10.
+
+[CÒN THIẾU] Cần gói release chứa manifest.json, full Config, data/split hashes, Git SHA thực thi, requirements/version, checkpoint identities và scientific_checks của đúng run. Đã có một phần config/hash trong pilot, nhưng chưa có bản manifest/checkpoint đầy đủ của mọi method. Resume phải lưu cả Python/NumPy/Torch/CUDA RNG, loader generator và optimizer/scheduler states. Cùng seed không bảo đảm bit-identical giữa mọi GPU/version.
+
+MỤC 03. Các phương pháp có chung initialization, data split và điều kiện đánh giá không?
+[MÃ NGUỒN] Các HWA methods trong cùng fold nhận cùng digital checkpoint và giữ digital_identity. Split CIFAR-10 là random 45.000 train/5.000 validation từ official 50.000 training images; test là official 10.000 test images, tách biệt. Ba “fold” là ba lần random holdout với seed khác nhau, KHÔNG phải ba phần k-fold disjoint. Mean/std CIFAR normalization: (0.4914,0.4822,0.4465)/(0.247,0.2435,0.2616); train-only pad4/crop32/flip, không augment validation/test.
+
+[DỮ LIỆU] checkpoint_metadata.csv có 6 records HWA/NSR: mỗi cặp cùng fold có digital_identity giống nhau; ba fold có ba digital identities khác nhau. Hash-content checks và BN loaded_exactly đều được báo PASS. Các history learning-rate theo epoch ghép cặp khớp nhau. Với HWA, train_extra=0 trong cả 100 epoch; NSR train_extra>0. Vì vậy baseline training HWA trong các history này không có thêm DAR/NSR penalty.
+
+Trong retention, các compensation variants của cùng model dùng lại cùng persistent PCM states và cùng conductance read tại từng timestamp. Evaluation dùng common random-stream seed; lớp/device statistics, times, test images và periphery preset được giữ chung. Giữa hai model khác weights, “cùng seed” không có nghĩa conductance hay noise amplitude bằng nhau: sigma phụ thuộc conductance.
+
+[CÒN THIẾU] Với DAR/DriftAttention, cần checkpoint digital_identity/split digest tương ứng để xác nhận thực thi, không chỉ nhìn code cùng initialization. Archive DAR mới không chứa các checkpoint identities. Với lần chạy Drive hiện tại, phải sửa lỗi fold1 mang metadata fold0 và reset FULL_EXP khi đổi WORKER_MODELS. Nếu lấy cùng model copy làm nhiều fold thì không còn các lần huấn luyện độc lập, CI bên dưới không hợp lệ.
+
+
+B. COMPLETE MATHEMATICAL SPECIFICATION — ĐẶC TẢ TOÁN HỌC
+
+MỤC 04. Định nghĩa chính xác σ_p(g), σ_ν(g), q(g), đơn vị và implementation
+[MÃ NGUỒN] Ký hiệu g trong NSR là normalized magnitude không thứ nguyên, KHÔNG phải giá trị microSiemens trực tiếp. Với physical tile weight w_{l,i}, M_l=stopgrad(max_j |w_{l,j}|), g_{l,i}=|w_{l,i}|/max(M_l,1e-12). Đặt g_c=max(g,1e-7). Code tính theo toàn layer/tile, không dùng một maximum khác cho từng weight. Các tile conv được flatten [out,in*kh*kw].
+
+sigma_p(g) = (0.26348 + 1.9650*g - 1.1731*g^2)/25.
+sigma_nu(g) = clip[-0.0125*ln(g_c)-0.0059, 0.008, 0.045].
+q(g) = min(0.0088 / max(g_c^0.65,1e-3), 0.2).
+
+sigma_p là độ lệch chuẩn programming được chuẩn hóa theo Gmax; sigma_nu là độ lệch chuẩn tham số drift exponent, không thứ nguyên; q là hệ số read-noise tương đối. Với Gmax=25 μS và noise scales=1, programming sigma vật lý tương ứng là 25*sigma_p(g) μS. Ví dụ tại g=1: sigma_p=0.0422152, tức 1.05538 μS; sigma_nu=0.008; q=0.0088. Hệ số read noise đầy đủ tại t còn nhân sqrt(log((t+t_read)/(2*t_read))).
+
+Variance surrogate: v(g)=sigma_p(g)^2 + g^2*[C_nu*sigma_nu(g)^2 + C_r*q(g)^2]. Trong notebook, các biến lần lượt là sigma_p, sigma_nu, q_s, L2_mean, R_mean. Trong bản nháp PDF đã gửi là C_nu/C_r, không có biến code tên C_T. Nếu dùng ký hiệu C_T trong bài, phải nói rõ nó ứng với C_nu, không gộp nhầm hai moment.
+
+Mean drift của simulator là mu_nu(g)=clip[-0.0155*ln(g_c)+0.0244,0.049,0.1]. Simulator lấy nu=abs(mu_nu+sigma_nu*z), z~N(0,1), nhân drift_scale. sigma_nu trong surrogate là tham số trước phép abs, không tự động bằng SD chính xác sau folded-normal. Read q trong native AIHWKit phụ thuộc G_programmed/Gmax, còn surrogate dùng g target/weight đã chuẩn hóa. Đây là xấp xỉ cần nêu, không phải hai implementation hoàn toàn giống nhau.
+Log trong các công thức này là log tự nhiên. nsr_penalty không tự nhân các cfg.programming/read/drift noise scales vào từng variance term; các giá trị đã nêu ứng với noise scales=1 của completed run. Nếu đổi các scales, phải khai báo và kiểm tra surrogate tương ứng.
+Nguồn: nsr_penalty và AIHWKit 1.1.0 inference/noise/pcm.py.
+
+MỤC 05. C_T/C_nu, C_r, β0 và toàn bộ numerical floors
+[MÃ NGUỒN + TÍNH LẠI] t0=20 s; t_max=5*365.25*86400=157788000 s; t_read=250e-9 s. L=ln(t_max/t0)=15.881030644303. Giả sử u=ln(t/t0) uniform trên [0,L]:
+C_T = C_nu = E[u^2] = L^2/3 = 84.069044775098.
+C_r = mean_200[ln(t)+ln(1/(2*t_read))] = 25.444905334230.
+200 điểm được đặt đều trên log(t), có cả endpoints. Đây là xấp xỉ log(t/(2*t_read)), khác rất nhỏ với native log((t+t_read)/(2*t_read)).
+beta0 = (0.26348/25)^2 = 0.00011107473664. Nó xấp xỉ programming variance của inactive differential partner sau chuẩn hóa, không phải một lambda được tối ưu.
+
+NSR layer:
+R_l = [sum_i v(g_li) + N_l*beta0] / [sum_i g_li^2 + 1e-12].
+Loss = cross_entropy + (lambda_NSR/|A|)*sum_l R_l, lambda_NSR=0.1; |A|=34 cho ResNet này, 2 cho MLP. Từng layer được cho trọng số bằng nhau; không phải weight-average tất cả parameters. Không thay tổng bằng mean rồi giữ epsilon tùy ý, vì khi đó effective epsilon thay đổi theo kích thước layer.
+
+Floors/clips cần ghi đúng: max weight normalizer 1e-12; loss-energy denominator cộng 1e-12; g_c floor 1e-7; g_c^0.65 floor 1e-3 trước chia read coefficient; q cap0.2; sigma_nu clip[0.008,0.045]. Các floor khác ngoài NSR: reference target floor0.10 μS; reference gain denominator1e-6 μS; input-range dùng khi deployment max(|r|,1e-8); learned input range sau update >=1e-3; GDC-safe current readout phải >1e-8 (đơn vị readout), không phải 1e-6 μS. DAR riêng dùng w_inf floor1e-8, g_rel clip[1e-7,1]. Không dùng các epsilon này lẫn nhau.
+
+MỤC 06. Đại lượng nào có gradient, đại lượng nào detach?
+[MÃ NGUỒN] Trong worker P4 đã dùng cho bộ 100-epoch: w là tile.tile.weight có requires_grad=True. |w|, g, sigma_p(g), sigma_nu(g), q(g), cả numerator và sum(g^2) của denominator vẫn nằm trong autograd. max_j|w_j| ở normalizer được detach; C_nu, C_r, beta0, epsilon, lambda và time endpoints là constants. Clamp cho gradient từng đoạn; khi nằm sâu trong vùng bị clamp, derivative của nhánh đó bằng 0. PyTorch chọn subgradient 0 của abs tại đúng 0. Detach normalizer không có nghĩa detach toàn regularizer.
+
+NSR không trực tiếp chứa BN parameters, digital bias, input range hay output scales; các parameters đó vẫn học qua CE. Snapshot cho retention detach weights/scales/ranges và dùng no_grad: không có gradient qua reference bank, B selection, PCM programming, DriftSlice gain hay GDC-safe lúc đánh giá.
+
+CHI TIẾT AIHWKit QUAN TRỌNG: TorchInferenceTile.set_scales đăng ký hook grad / S_hook^2 trên tile weight. Worker P4 gốc cho cả CE và NSR đi qua hook: gradient đưa tới optimizer có dạng S_hook^-2*(g_CE+g_NSR). S_hook là scale truyền vào set_scales; không được tùy tiện đồng nhất với tổng learned output scale đang thay đổi mà get_scales() trả về.
+
+Notebook uploaded v2/154-epoch lại tạo detached weight leaves, tính penalty trên đó và add gradient sau hook. Khi đó dạng là S_hook^-2*g_CE + g_NSR. Scalar loss có thể bằng nhau nhưng update khác. Native CPU probe đã xác nhận khác biệt; đây không phải bằng chứng thực nghiệm GPU của người dùng. Không mô tả hai đường này là “MLP và ResNet hoàn toàn cùng thuật toán tối ưu”, và không chuyển giữa chúng rồi gọi là tiếp tục cùng một training protocol. Bản trả lời cho kết quả 100-epoch dựa trên worker gốc.
+
+MỤC 07. Vì sao surrogate gần với sai số đã nêu? Mean drift, clipping và noise dependence
+Cách diễn giải có giới hạn: viết delta_nu=nu-mu_nu, u=ln(t/t0). Nếu tuyến tính hóa sau khi bỏ phần drift trung bình, bỏ nonlinear clipping và covariance, thì delta_g xấp xỉ delta_program - g*u*delta_nu + g*q(g)*sqrt(read_log)*z_read. Giả sử các nguồn độc lập, variance có dạng sigma_p^2 + g^2*u^2*sigma_nu^2 + g^2*q^2*read_log. Lấy trung bình theo log-time cho C_nu, C_r. Differential pair có thêm inactive-partner variance, được xấp xỉ bởi beta0. Chuẩn hóa theo sum(g^2) tạo noise-to-signal surrogate.
+
+Đây KHÔNG phải exact expected MSE giữa G(t) và target G, cũng không phải upper bound của classification error. Công thức không có bias do mean drift mu_nu; nếu đo target error thô trước compensation thì E[error^2]=Var(error)+Bias(error)^2, và NSR không chứa đầy đủ term thứ hai. DriftSlice/GDC cố giảm mean drift sau training, nhưng NSR không mô phỏng chính xác residual sau hai estimator đó, không chứa reference uncertainty hay gain placement.
+
+Các phần bị xấp xỉ: programmed upper/lower clipping, folded-normal drift coefficient, zero-branch clipping/bias, drift attenuation của programming noise, q phụ thuộc programmed G, covariance do shared calibration, input/DAC/ADC quantization và clipping, digital scales/BN/residual nonlinearities. Với zero target, Gaussian sau clamp dưới 0 không còn zero-mean Gaussian; beta0 không phải variance chính xác sau tất cả các phép đó.
+
+Kết luận có thể viết: “NSR là moment-based first-order noise-to-signal surrogate; giảm NSR không tự chứng minh giảm physical RMSE hay tăng accuracy.” Cần đo correlation/ablation giữa surrogate, target-normalized weight error, layer-output error và accuracy. Bản nháp MLP cũng cho absolute corrected RMSE tăng trong khi NRMSE giảm; không được gọi đó là trực tiếp giảm physical noise trên mọi thước đo.
+
+
+C. CALIBRATION PROTOCOL — QUY TRÌNH HIỆU CHỈNH
+
+MỤC 08. Reference targets trong từng conductance class, kể cả class chứa 0
+[MÃ NGUỒN] B boundaries là e_b=b*25/B μS; class0=[0,e1], các class tiếp theo (e_b,e_{b+1}]. torch.bucketize(edges[1:-1],right=False) đặt đúng boundary vào class thấp hơn. Assignment dựa trên G_target và giữ nguyên khi aging; không re-bin bằng noisy G đang đọc.
+
+R_tot=64 cho MỘT reference bank dùng chung tất cả 34 layers của một realization. Mỗi class có R_b=64/B cells. Với class [lo,hi], code đặt:
+hi_eff=hi-min(1e-4,(hi-lo)/10);
+lo_eff=min(max(lo+1e-4,0.10),hi_eff);
+targets=linspace(lo_eff,hi_eff,R_b).
+Tất cả giá trị ở đây là μS. Không phải chỉ đặt mọi reference ở tâm class.
+
+Ví dụ B=1: 64 targets từ 0.10 đến24.9999 μS. B=2: 32 targets class đầu từ0.10 đến12.4999; 32 targets class sau từ12.5001 đến24.9999. B=4:16 cells/class; B=8:8 cells/class. Tham số refs_per_bin=16 phù hợp B=4 mặc định, nhưng số cells thật được tính bằng reference_cell_budget // B.
+
+Class chứa zero KHÔNG có reference đúng bằng0: floor0.10 μS. Gain của class đó vẫn áp dụng cho zero-target branch đã có programming/read noise. Cần nêu hạn chế này; bank không đo riêng phân bố của zero devices và cũng không lấy targets theo empirical histogram weight của model. Cost K=4 reads/cell =>256 read samples cho mỗi bank tại một thời điểm đo, ngoài chi phí selection/calibration khác. DS-B1 và DS-val là hai phương án đánh giá; không cộng hai bank thành hardware budget128 cho một phương án triển khai.
+
+MỤC 09. Quan hệ thống kê giữa reference devices và weight devices
+[MÃ NGUỒN] Cả hai dùng PCMLikeNoiseModel, gmax25 μS, cùng programming/read/drift scales=1 và cùng luật conductance-dependent mu_nu/sigma_nu. Mỗi weight layer có một programming seed riêng. Reference bank dùng seed khác (root+30), không sao chép G_programmed hay nu từ weight devices. Đây là các simulated devices độc lập theo mô hình/RNG streams, chia sẻ cùng luật thống kê chứ không phải cùng physical cells.
+
+G_programmed và nu được tạo một lần rồi giữ xuyên 12 timestamps cho cả main và reference devices; read noise được lấy lại khi quan sát. Một class gain là shared random quantity áp dụng cho rất nhiều weights và cho tất cả layers: sau correction, errors có thể tương quan dù programming/read draws ban đầu độc lập. Surrogate NSR không mô hình hóa đầy đủ covariance do shared gain này.
+
+Code giả định các layers dùng cùng công nghệ PCM, cùng luật drift theo target conductance và reference bank đại diện được cho toàn mạng. Không có thực nghiệm về spatial/process gradients, temperature mismatch, reference aging khác weight arrays, hoặc position-dependent peripheral mismatch. Không được viết reference tracking đã chứng minh độ tin cậy của chip thực. Cũng không nói references “perfectly correlate” với weight devices; bằng chứng hiện có chỉ là mô phỏng statistically matched devices.
+
+MỤC 10. Reference baseline có noise không? Tần suất calibration và khi nào redraw read noise?
+[MÃ NGUỒN] Reference bank lưu ref20 = _read(20 s, bank_seed+333). Đây là phép đo CÓ read noise; mỗi cell lấy K=4 reads rồi average, sau đó giữ nguyên baseline đo được cho toàn retention trajectory. Nó không bằng target G hay noiseless G_programmed. Lúc gains(t) chạy, code lấy thêm K reads/cell tại t và dùng mean theo class. Vì baseline/current là noisy measurements khác nhau, gain tại20 s không buộc bằng1.
+
+Calibrate một lần cho MỖI evaluation timestamp, model/fold/realization; có12 timestamps. Không calibrate mỗi image/minibatch và không có continuous online controller trong code. Bank ref20 được khởi tạo lại khi tạo một realization mới; rerun cùng seed tái tạo cùng stochastic trajectory. Không reprogram weights theo từng timestamp.
+
+Thời gian: elapsed_pcm_time(t)=t-20; AIHWKit cộng t0=20 trở lại, nên absolute label20 s tương ứng elapsed0 và drift factor1, nhưng read noise vẫn có. Main20s reference weights dùng root+40; current at index i dùng root+100000+100*i và layer offset1009*j. DriftSlice gains dùng root+500000+101*i. Bank read repeat k dùng seed+7919*k. Periphery evaluation uses root+700000+31*i. GDC-safe calibration dùng root+850000+31*i+layer_index; probe chọn ở baseline với ADDED_SEED_BASE=50000000.
+
+GDC-safe không lưu một scalar readout baseline duy nhất cho mọi t: mỗi call estimator đọc lại w_ref và w_now với fresh peripheral-noise draws. w_ref itself là noisy physical reference tensor đã được lấy ở20s và giữ; xem thêm mục11. Quy trình này khác bank ref20 cố định của DriftSlice và phải báo cáo cost/frequency riêng.
+
+MỤC 11. GDC-safe estimator, safeguards, correction placement và periphery settings
+[MÃ NGUỒN] GDC-safe ở worker là estimator tự cài đặt qua AnalogMVM, không được gọi nguyên xi là native mapped-tile GDC. Mỗi layer chọn uniform normalized DAC probe x=u*1, u bắt đầu1 rồi chia2, tối đa16 thử. Chỉ chấp nhận khi max|raw ADC output| ở reference <=0.5*out_bound=5. Probe là normalized input sau chuẩn hóa range, không phải raw input “3.0”.
+
+Với K=4 calibration reads và row multiplier c_j=input_range*total_output_scale_j:
+B_ref=mean_{k,j}|c_j*y_ref,kj|;
+B_now=mean_{k,j}|c_j*y_now,kj|;
+gamma_GDC=B_ref/B_now.
+Đo bias-free. Phải probe.converged=True; sat_ref=sat_now=0, với sat được tính ở |y|>=out_bound*(1-1e-4); current finite và >1e-8. Nếu invalid thì ghi NaN, không bịa accuracy. Gain GDC-safe KHÔNG bị clip[0.5,3] như DriftSlice.
+
+Vị trí: deployed output y = r*S*AnalogMVM(W_eff, clip(x,-r,r)/r)*gamma_GDC + bias. Gain ở sau ADC/analog MVM và trước digital bias; BN dùng trạng thái đã lưu. DriftSlice thì nhân trực tiếp từng conductance branch trước differential weight reconstruction và trước DAC/ADC path; không có thêm GDC gain. Vì khác estimator VÀ correction placement, so sánh DS-B1–GDC-safe chưa tự cô lập được lợi ích chia lớp.
+
+Periphery: TorchInferenceRPUConfig; 8-bit I/O với inp_res=out_res=254 (cách AIHWKit diễn giải levels), constant noise-management threshold1; bound-management NONE; output noise0.04, out_bound10; weight-modifier ADD_NORMAL std0.02 rel_to_actual_wmax=True trong training; ir_drop=0; digital_bias=True. Input range/output scales được học, không reset lúc retention.
+
+Giới hạn: uniform probe có thể bị cancellation nên readout nhỏ dù không saturated. Check “valid” chứng minh qua safeguards đã định, không chứng minh estimator unbiased/chính xác. Full notebook MLP khác còn có GDC-safe-onehot với probe khác; hai tên này không được gộp thành cùng baseline.
+
+MỤC 12. Validation scores theo lần huấn luyện và số class đã chọn
+[DỮ LIỆU] CSV raw HWA, NSR và DAR nhất quán: fold0 chọn B=2, fold1 B=1, fold2 B=1. Saved output của uploaded P0 cell45 cũng in 2/1/1. B được chọn bằng Standard-HWA checkpoint, không chọn riêng cho NSR/DAR rồi lấy kết quả tốt nhất trên test.
+
+[MÃ NGUỒN] Candidates {1,2,4,8}, ba PCM realizations/validation, đánh giá tại5 năm; chọn mean validation error nhỏ nhất, tie trong1e-10 chọn B nhỏ hơn. Cùng main PCM states giữa các candidate B trong mỗi realization. Result paths: retention/<ret_fp12>/foldk/bin_selection_validation.csv và selected_bins.json; JSON phải khớp selection_method và selection_model_identity.
+
+[CÒN THIẾU] Chưa có bin_selection_validation.csv hoặc selected_bins.json nguyên gốc trong các archive kết quả đã gửi. Do đó chưa thể điền bảng validation score của cả B=1,2,4,8 cho mỗi fold mà không đoán. Cần xuất cả hai file của cả3 fold. Có B trong raw/saved output không thay thế được toàn bộ validation table.
+
+Có một bảng KHÁC đã kiểm tra: best-checkpoint validation accuracy của HWA theo fold0/1/2 là91.1800/91.3067/91.5533%; NSR là91.0733/91.0533/91.3400%. Đây là validation chọn epoch, KHÔNG phải score dùng chọn B. Không dùng nó để điền nhầm cột validation-by-B.
+
+
+D. STATISTICAL EVIDENCE — BẰNG CHỨNG THỐNG KÊ
+
+MỤC 13. Kết quả theo từng training run cho mọi so sánh chính
+[DỮ LIỆU] Các bảng ở PHỤ LỤC A/B dưới đây được tính từ raw/fold-mean CSV: mỗi training repetition được average30 device realizations trước. Phụ lục A cho toàn bộ endpoint5 năm theo từng fold của các phương án chính. Phụ lục B cho12 timestamp means của mỗi fold, gồm FP32-Direct, HWA, NSR và DAR không DriftSlice. Không dùng đường trung bình để suy ngược số của từng fold.
+
+DAR benchmark được trình bày riêng: “DAR only/none” và “DAR + GDC-safe”, không dùng DAR + DriftSlice làm baseline của paper. Kết quả ResNet người dùng không được thay bằng số MLP/MNIST trong paper. Pure DAR ở dữ liệu này có mean5y10.0641%; DAR + GDC-safe84.4636%.
+
+P1 HWA và P4 NSR raw grids đã kiểm tra exact expected grid, no duplicates, finite losses/accuracy, test-only, mean/SD khớp. DAR mới có4.320 raw records đủ3*30*12*4; khi chỉ lấy none/GDC-safe là2.160 records. Archive không chứa đủ retention shard/checkpoint identity của toàn bộ methods, nên tính đầy đủ CSV không tự chứng minh mọi nhãn fold là ba training runs thật. Muốn reviewer audit đầy đủ cần giữ raw CSV, split hashes, model_identity, selected B records và manifest liên kết với các bảng.
+
+MỤC 14. Paired uncertainty của DriftSlice so với GDC, đặc biệt CIFAR-10
+[DỮ LIỆU + TÍNH LẠI] Đặt d_k = accuracy_candidate,k - accuracy_control,k sau khi average30 realizations của fold k. Dùng n=3 training repetitions, df=2, CI95%=mean(d) +/- t_0.975,2 * sample_SD(d)/sqrt(3), t=4.3026527297. Không dùng n=90. Các số chi tiết và vector d_k ở PHỤ LỤC C.
+
+HWA + DS-B1 so với HWA + GDC-safe: +0.970000 pp; CI95%[0.776790,1.163210]; p=0.002136. HWA + DS-val: +0.937333 pp; CI[0.655803,1.218864]; p=0.004838.
+NSR thêm vào cùng DS-B1: +0.197111 pp; CI[-0.852862,1.247084]; p=0.504040. NSR thêm vào cùng DS-val: +0.171111; CI[-0.956401,1.298623]. Chưa có bằng chứng đủ để khẳng định NSR cải thiện accuracy ResNet dưới matched correction.
+NSR + DS-B1 so với HWA + GDC-safe: +1.167111 pp; CI[-0.068392,2.402614]; p=0.055538. Mean lớn hơn nhưng CI còn chứa0; không gán toàn bộ +1.167 cho riêng NSR.
+DAR + GDC-safe so với HWA + GDC-safe: +0.326333; CI[-1.743424,2.396090]. NSR+DS-B1 so với DAR+GDC-safe: +0.840778; CI[-0.080793,1.762348]. Các mean này chưa chứng minh superiority có ý nghĩa thống kê.
+
+Có Holm correction thăm dò trên8 contrast được công bố rõ trong PHỤ LỤC C, không phải một hypothesis family được preregister trước khi nhìn data. Family cũ trong báo cáo trước có10 contrast nên p_Holm khác; không tráo hai bảng. CI ở đây là CI từng contrast, không simultaneous adjusted CI. Với3 repetitions, giả định phân phối paired differences và tính độc lập rất yếu để kiểm tra; kết luận có điều kiện theo đúng fold identities của bộCSV. Không dùng các CI này nếu files thực chất là duplicate checkpoint đổi nhãn.
+
+MỤC 15. Xác nhận average device realizations trong từng repetition, không coi là independent training samples
+[MÃ NGUỒN + DỮ LIỆU] two_stage_summary/fold_means làm đúng hierarchy:
+a_k(t)=(1/30)*sum_r accuracy_{k,r}(t);
+mean_accuracy(t)=(1/3)*sum_k a_k(t);
+sd_across_folds(t)=sqrt(sum_k(a_k-mean)^2/(3-1)).
+
+CSV raw có3*30 samples mỗi timestamp/method/compensation, nhưng inferential sample size là3 trained models. Read noise/device realizations chỉ mô tả hardware randomness có điều kiện trên model. Test images cũng không phải training replications. Việc đo nhiều timestamp trên cùng programmed devices tạo dependence theo thời gian; không dùng12 timestamps như12 training runs độc lập.
+
+Code export reindex exact expected grid trước khi summarize; fold thiếu realization hoặc giá trị invalid => NaN, không silently skip để có mean đẹp. Hai-stage summaries gửi đã được tính lại từ raw và khớp trong sai số floating point. Shading trong figure MATLAB hiện tại là mean +/- 2 sample SD giữa3 fold means, KHÔNG phải95% CI. CI của paired difference dùng SD(d_k), không lấy chênh hai SD/SE độc lập.
+
+Bản nháp MLP có5 training repetitions và30 realizations/repetition. Đó là một experiment khác, không đổi n=3 của ResNet thành5 bằng cách sao chép caption hoặc ghép thêm một worker.
+
+
+E. MECHANISM AND ROBUSTNESS — CƠ CHẾ VÀ ĐỘ VỮNG
+
+MỤC 16. Normalization và scale-detachment ablations, ưu tiên MNIST
+[CÒN THIẾU THỰC NGHIỆM] Chưa có bộ ablation huấn luyện matched xác định tác dụng của energy normalization hoặc detach layer maximum. CPU equality/gradient probes chỉ xác nhận implementation, không thay thế ablation accuracy. Bản nháp MLP báo absolute RMSE lớn hơn nhưng NRMSE nhỏ hơn cũng chưa phân biệt được cơ chế normalization với việc thay đổi learned weight scale.
+
+Thiết kế cần làm: bắt đầu bằng MNIST MLP để giữ core và giảm chi phí. So sánh (A) NSR đầy đủ hiện tại, (B) cùng công thức nhưng cho gradient qua max|w|, (C) bỏ signal-energy normalization nhưng có normalization/matching strength trên validation để tránh chỉ so sánh hai loss scales khác nhau, (D) CE/HWA control; có thể thêm ordinary L2 hoặc noise-aware baseline rõ công thức. Giữ digital initialization, split, optimizer/schedule, gradient clip, PCM bounds/noise, B/R/K và common seeds cố định.
+
+Báo initial/five-year validation rồi test sau khi khóa lựa chọn; đồng thời weight norm, physical RMSE, NRMSE, layer-output error và gradient ratios. Không được tune lambda trên test để biến mọi variant thành “improvement”. Pilot1 fold chỉ exploratory; xác nhận trên toàn repetitions của protocol trước khi claim cơ chế. Nếu thay detach hoặc hook-bypass v2, tạo training fingerprint mới; không chỉnh checkpoint cũ để coi là cùng algorithm.
+
+MỤC 17. Sensitivity check nhỏ quanh NSR strength
+[DỮ LIỆU, ĐÃ CÓ NHƯNG CHỈ EXPLORATORY] Có pilot validation trên fold0: lambda={0,0.1,1.0}, cùng HWA checkpoint khởi đầu, fresh AnalogAdam,10 continuation epochs, cosine per-batch LR1e-4 xuống1e-6; evaluate epochs0/5/10, ba device realizations, B=1,R=64,K=4. Initial accuracy guard: không giảm quá0.25 pp. Test set không được iterate.
+
+Mean five-year validation tại epoch0 của mọi candidate là85.706667%. Tại epoch10: lambda0=85.306667; lambda0.1=85.473333; lambda1=85.340000. Cả ba chọn checkpoint epoch0 khi cho phép fallback về initial model. Vì vậy pilot không tìm được continuation tốt hơn checkpoint gốc. So với lambda0 tại cùng epoch10,0.1 tốt hơn0.166667 pp, nhưng vẫn thấp hơn initial; không gọi đó là improvement của final full run.
+
+Giới hạn: chỉ một training fold, ba device realizations, một10-epoch continuation từ HWA chứ không phải sweep full100-epoch từ digital initial. Nó không chứng minh0.1 tối ưu toàn cục, không kiểm tra lambda2, và không phải local sensitivity dày quanh0.1. Muốn câu trả lời mạnh hơn cần thêm ví dụ0.03/0.1/0.3 với protocol matched, validation-only, sau đó confirm các folds khác. Không nhân lambda thành2 rồi dự đoán accuracy sẽ tăng; coefficient giữa NSR và DAR cũng không tương đương.
+
+MỤC 18. Điều tra NSR–GDC failure theo seed: gains, clipping, layer scales và BN
+[DỮ LIỆU MỘT PHẦN] Five-year NSR + GDC-safe theo fold0/1/2 là83.957667/84.767667/53.923000%; SD giữa fold means=17.579016 pp. Fold2 là nguồn failure lớn. Cùng NSR fold2 dùng DS-B1 đạt84.815333%, nên đây không phải một model luôn kém ở mọi compensation. Không suy ra NSR “không được áp dụng”: history penalty dương và checkpoint probes có gradient khác0.
+
+Các30 realizations fold2 NSR-GDC có SD accuracy10.370054 pp. Tất cả calibration valid=True, invalid_layers=0, max recorded ADC saturation=0. FC gain mean2.174763, SD0.063135; mean gain của các conv layers2.088016, SD0.012163 giữa realizations. HWA fold2: FC2.179230, conv mean2.169481. Các số aggregate không cho thấy FC gain cực lớn; cũng không loại trừ một conv layer bất thường bị che bởi average.
+
+Chẩn đoán checkpoint đã gửi:6 checkpoints,30 gradient batches,1.020 layer records và198 BN records. Loaded checkpoint hashes/BN states được báo chính xác và finite. NSR/CE gradient-ratio mean tại NSR checkpoints là0.004331%,0.007978%,0.002682% theo fold; mọi30 probe đều vượt clip threshold0.8. Đây là gradient tại checkpoint trên5 batches, không phải replay lịch sử updates. BN exact restoration không có nghĩa BN phù hợp với drifted activation distribution. Running variance rất nhỏ xuất hiện ở cả HWA lẫn NSR; không được quy riêng cho NSR fold2.
+
+[CÒN THIẾU] Chưa có per-layer gains/readout norms, SNR/cancellation, DAC/ADC clipping trong toàn bộ test forward, input/output scales và activation/BN moments dưới drift của từng realization. Cần instrument cùng checkpoint/device states, so sánh uniform probe với one-hot/random probes, và nếu thử BN recalibration thì chỉ dùng training/calibration data rồi validation chọn; không dùng test labels. Các thay đổi estimator/BN là protocol mới, phải xuất riêng. Chưa thể kết luận một nguyên nhân duy nhất từ dữ liệu hiện có.
+
+MỤC 19. Đo variance của gain estimator trước khi quy multiclass degradation cho reference uncertainty
+[DỮ LIỆU MÔ TẢ, CHƯA PHẢI KIỂM ĐỊNH CƠ CHẾ] Từ class_gain trong raw CSV tại5y, DS-B1 mean gain theo fold≈2.169903/2.167621/2.177435, SD giữa30 realizations≈0.038536/0.046043/0.049125 (CV1.78%/2.12%/2.26%). Ở fold0 DS-val dùng B=2, SD class0≈0.060854 và class1≈0.047881; CV≈2.79%/2.21%. Với fixed total budget, B tăng thì references/class giảm, nên variance tăng là cơ chế hợp lý về mặt thống kê, nhưng chưa có quan hệ nhân quả đã chứng minh.
+
+Các SD trên trộn programming variability, nu variability và read noise giữa different reference banks; KHÔNG phải variance riêng của read-estimator với programmed bank cố định. Bank/gain cũng được shared qua layers, tạo correlated residual errors. Các B4/B8 full-run reference-ablation shards chưa được gửi để đối chiếu cơ chế. Không kết luận “multiclass kém chắc chắn do reference uncertainty” chỉ từ mean accuracy hoặc một ECDF.
+
+PilotR64->256 chỉ có fold0,3 realizations,validation: NSR five-year86.246667->86.426667% (+0.18 pp), initial89.906667->90.046667% (+0.14 pp); retention-drop improvement chỉ0.04 pp. HWA cùng pilot lại giảm85.706667->85.626667%. Chưa đủ cho confirmatory mechanism claim.
+
+Thí nghiệm cần: fixed programmed main/reference states, redraw riêng read noise nhiều lần để đo Var(gamma|bank); sau đó redraw banks để tách between-bank variance. Báo bias, variance, covariance và cap-hit rate theo B,R,K,t; thêm noiseless-reference/oracle control được ghi rõ là diagnostic. Trong NSR raw hiện có, toàn timestamps class gains nằm[0.973896,2.339699], không chạm0.5/3. Vì thế tăng gain_max lên10 không giải quyết một saturation-at-3 đang quan sát thấy: ở bộ này không có cap hits.
+
+
+F. NOVELTY AND BASELINE FIDELITY — TÍNH MỚI VÀ ĐỘ TRUNG THÀNH BASELINE
+
+MỤC 20. Phân biệt ở mức phương trình với regularizers và reference tracking gần nhất
+[MÃ NGUỒN + ĐỐI CHIẾU HAI PAPER ĐÃ GỬI] Cần phân biệt ba loss:
+(1) NSR hiện tại: mean_l[(sum sigma_p^2 + C_nu*sum(g^2*sigma_nu^2) + C_r*sum(g^2*q^2) + N*beta0)/(sum g^2+eps)]. Đây là moment-based normalized variance proxy, deterministic theo w ở mỗi forward, có detached layer normalizer.
+(2) AICAS2025 DAR: penalty drift-magnitude tổng trên top80% weights, dạng sum g_i*|(t/t0)^(-zeta_i)-1|; zeta có sampled nu và weight-change modulation, lambda giảm theo epoch/time. Không phải NSR ratio. DriftAttention bổ sung gating/attention penalty, khác drift-only DAR.
+(3) Temporal Drift-Regularization paper đã gửi: R_l(t)=[||W_l-Wtilde_l(t)||_F^2/d_l]/[||W_l||_F^2/d_l+eps], mean qua layers, sampled nu giữ cố định trong epoch và training-time grid/strength tìm bằng validation. Nó trực tiếp lấy normalized squared drifted-weight deviation, có mean drift; NSR dùng analytical moments của uncertainty và bỏ nhiều bias/nonlinear terms.
+
+Với GDC, một scalar/per-layer gain lấy từ output readout khác DriftSlice: phân conductance targets thành B classes, R_tot/B references/class, gamma_b=clip(mean ref20/max(mean ref_t,epsR)), rồi nhân từng polarity trước reconstruction. Khi B=1 vẫn khác GDC-safe ở estimator, gain limits và correction placement; lợi ích DS-B1 không chứng minh lợi ích multiclass. Cần controlled estimator × placement ablation nếu muốn tách hai cơ chế.
+
+[CÒN THIẾU LITERATURE AUDIT] Các khác biệt trên làm rõ implementation, KHÔNG tự chứng minh global novelty. Phải đối chiếu noise-aware/heteroscedastic regularization, normalized perturbation losses và multi-reference/bin-wise tracking trong prior art, chỉ rõ phương trình và giả định. Việc công thức trùng nsr_run.py xác nhận consistency nội bộ, không phải bằng chứng mới hay không mới của ý tưởng. Không dùng “first”/“novel” tuyệt đối chỉ vì chưa thấy trong hai paper đã đọc.
+
+MỤC 21. Baseline nào faithful reproduction, baseline nào adaptation?
+Kết luận cần viết thẳng:
+- HWA/GDC-safe/DriftSlice trong các worker ResNet: implementation được định nghĩa rõ và so sánh nội bộ; không tự động là exact reproduction của mọi preset/paper. HWA training có CE-only đã được history hỗ trợ. “HWA + GDC-safe” là baseline deployment cụ thể; “HWA + DriftSlice” thay compensation, không thêm NSR training.
+- DAR-HWA của AICAS2025 là reconstructed/adapted baseline. Các giá trị công bố như lambda_init0.5, top80%, tc0.01 có dùng, nhưng code phải tự quyết định eta1, signed-initial delta, siemens units, literal-seconds time handling. Paper dùng MLP/MNIST,154epoch/5repetitions; ResNet protocol được cấu hình100/3. 100 epoch không phải bội số của chu kỳ11 mốc DAR (9 chu kỳ đầy đủ và1 epoch), khác154=14*11 trong paper. Không ghi faithful exact reproduction. DAR + GDC-safe được báo riêng; không gọi DAR + DriftSlice là DAR của paper.
+- DriftAttention cũng là adaptation sang ResNet và gate3072 dimensions; uploaded P3 có role chọn NSR dù tên file nói DriftAttention. Chưa có retention CSV DriftAttention trong hai archive mới, nên không tạo/đổi tên một curve thành DriftAttention.
+- NSR scalar/core MLP và worker P4 có equality probes hỗ trợ. Nhưng full pipeline khác architecture, epochs/folds/batches và một số deployment conventions. v2 hook-bypass còn đổi optimizer gradient route.
+- Native AIHWKit programming chỉ clamp dưới0; worker PCMPhysicalMatrix/ReferenceBank còn cap G_programmed<=25 μS. Full MLP default và bản nháp mô tả upper mapping limit không phải hard noisy-state cap. Đây là khác biệt thực chất cần disclose, không được nói PCM statistics hoàn toàn giống nhau. Không chỉnh completed data để che khác biệt.
+- GDC-safe uniform probe của worker khác GDC-safe-onehot trong full MLP và không phải native GlobalDriftCompensation y hệt. Cost, noise/cancellation và placement phải được nêu.
+
+Do đó có thể claim adaptation có kiểm soát trong cùng ResNet run; không claim tất cả baseline là nguyên bản, không claim so sánh của hai architecture chứng minh cùng một effect size. Giữ raw curve “DAR / none” và “DAR / GDC-safe” đúng nhãn; không dùng accuracy của paper để thay dữ liệu ResNet.
+
+MỤC 22. Có thể đánh giá temporal-regularization baseline mạnh hơn trong matched conditions không?
+Có thể về mặt triển khai, nhưng CHƯA có kết quả chạy đó trong các artifact đã gửi. Không trả lời “đã đánh bại baseline mạnh hơn” từ DAR reconstruction hoặc từ việc tự tăng NSR lambda.
+
+Baseline phù hợp là normalized temporal squared-deviation của paper Temporal Drift-Regularization, giữ nguyên code NSR/DriftSlice hiện tại. Tạo method/fingerprint mới (ví dụ PCM-TemporalDR-HWA), dùng cùng ResNet32, cùng digital parent theo fold, split, augmentation, optimizer/schedule, input/output scaling, clip, epochs/budget và PCM bounds/noise. Lấy nu một lần mỗi epoch và giữ cho các batches nếu theo paper; giữ gradient qua W/normalizer đúng thiết kế đã khai báo, chỉ detach sampled hardware randomness. Cần kiểm tra penalty gradient khác0: gọi native @no_grad noise routines rồi dùng kết quả detached làm loss không đảm bảo một temporal regularizer differentiable.
+
+Chọn lambda/time grids bằng validation-only với cùng budget tìm kiếm, không sao chép lambda=2 của paper vào NSR vì hai loss scales khác nhau. Chạy100 epochs cho tất cả trong matched-budget ResNet comparison; nếu muốn exact154-epoch paper-aligned experiment thì ghi riêng và cho controls cùng budget. Main deployment benchmark nên cùng GDC-safe cho HWA/DAR/TemporalDR; so sánh compensation đề xuất trên cùng trained checkpoints thành một trục riêng. Không áp DriftSlice lên DAR rồi gọi đó là “pure DAR baseline” của paper.
+
+Có thể screen một fold/ít realizations để chọn ứng viên, nhưng kết quả cuối cần đầy đủ các training repetitions,30 realizations/repetition, frozen validation choice, cùng test timestamps và paired fold-level uncertainty. Lưu actual source Git SHA, complete Config, train/retention fingerprints, checkpoint/digital identities và selection tables. Một10-epoch warm-start pilot chỉ là exploratory continuation, không thay thế full baseline matched từ cùng digital initialization.
+
+Tóm lại: baseline mạnh hơn là một thí nghiệm còn thiếu; ta đã có specification có thể kiểm tra, không có số accuracy mới để điền. Cách trình bày hiện tại nên nói rõ gain của DriftSlice được dữ liệu hỗ trợ trong bộ ResNet, còn added NSR benefit và tính vượt trội trước temporal baseline mạnh hơn chưa được xác nhận.
+
+
+==============================================================================
+PHỤ LỤC A — FIVE-YEAR ACCURACY THEO TỪNG TRAINING REPETITION
+Mỗi fold đã average30 PCM realizations. Mean ± sample SD giữa3 folds, đơn vị %.
+Method / compensation                        fold0      fold1      fold2       Mean         SD
+PCM-HWA / none                           10.160000  10.315333  10.067000  10.180778   0.125464
+PCM-HWA / GDC-safe                       84.436333  84.121333  83.854000  84.137222   0.291492
+PCM-HWA / DS-B1                          85.369667  85.180667  84.771333  85.107222   0.305853
+PCM-HWA / DS-val                         85.271667  85.180667  84.771333  85.074556   0.266511
+PCM-DAR-HWA / none                        9.971000  10.149667  10.071667  10.064111   0.089573
+PCM-DAR-HWA / GDC-safe                   84.357000  85.406000  83.627667  84.463556   0.893942
+PCM-NSR-HWA / none                        9.974333  10.062333  10.100333  10.045667   0.064632
+PCM-NSR-HWA / GDC-safe                   83.957667  84.767667  53.923000  74.216111  17.579016
+PCM-NSR-HWA / DS-B1                      85.242000  85.855667  84.815333  85.304333   0.522960
+PCM-NSR-HWA / DS-val                     85.066000  85.855667  84.815333  85.245667   0.542940
+
+Không có DAR + DriftSlice trong các baseline principal của bảng này.
+
+PHỤ LỤC B — TOÀN BỘ TRAJECTORY THEO FOLD (MEAN CỦA30 REALIZATIONS)
+Thứ tự cột:20s | 1min | 30min | 1h | 1d | 5d | 1mo | 6mo | 1y | 2y | 3y | 5y.
+Mỗi dòng là một trained model/fold; các mốc trong dòng không độc lập theo thời gian.
+FP32-Direct/DS-B1/fold0: 69.826667 | 70.234333 | 69.683333 | 69.028667 | 67.661333 | 65.816000 | 65.025667 | 62.541667 | 63.284000 | 62.231667 | 61.715667 | 60.728667
+FP32-Direct/DS-B1/fold1: 65.690333 | 66.362333 | 65.357333 | 64.711333 | 64.754667 | 63.243333 | 63.155667 | 61.143667 | 59.716333 | 59.824000 | 58.958667 | 58.521333
+FP32-Direct/DS-B1/fold2: 71.499667 | 72.565000 | 71.280333 | 71.619333 | 70.010667 | 68.947000 | 68.278333 | 66.313000 | 67.057000 | 66.100333 | 65.311667 | 64.243000
+FP32-Direct/DS-val/fold0: 69.889667 | 70.176667 | 69.871000 | 69.236000 | 67.866000 | 66.076333 | 65.181333 | 62.816333 | 63.731333 | 62.546333 | 62.020000 | 60.799000
+FP32-Direct/DS-val/fold1: 65.690333 | 66.362333 | 65.357333 | 64.711333 | 64.754667 | 63.243333 | 63.155667 | 61.143667 | 59.716333 | 59.824000 | 58.958667 | 58.521333
+FP32-Direct/DS-val/fold2: 71.499667 | 72.565000 | 71.280333 | 71.619333 | 70.010667 | 68.947000 | 68.278333 | 66.313000 | 67.057000 | 66.100333 | 65.311667 | 64.243000
+FP32-Direct/GDC-safe/fold0: 69.424333 | 68.355667 | 65.411000 | 64.746000 | 58.717667 | 54.689667 | 52.071333 | 46.175333 | 47.647000 | 44.779667 | 44.375667 | 42.189000
+FP32-Direct/GDC-safe/fold1: 65.894667 | 65.989000 | 61.211667 | 60.275667 | 55.536667 | 52.169667 | 48.545333 | 43.434000 | 41.641333 | 41.872333 | 39.227667 | 38.165667
+FP32-Direct/GDC-safe/fold2: 71.540000 | 71.337667 | 66.589667 | 66.492000 | 59.773667 | 57.196000 | 53.051333 | 48.429000 | 47.668000 | 45.282667 | 44.242000 | 42.107000
+FP32-Direct/none/fold0: 69.644667 | 53.877667 | 15.725333 | 13.871333 | 11.690000 | 11.018333 | 10.391667 | 10.186333 | 10.153000 | 10.137333 | 10.095333 | 10.079000
+FP32-Direct/none/fold1: 65.756667 | 45.675667 | 12.669000 | 11.994000 | 10.986000 | 10.422667 | 10.217667 | 10.129333 | 10.148000 | 10.090333 | 10.094333 | 10.063000
+FP32-Direct/none/fold2: 71.597667 | 52.847333 | 10.792000 | 10.664667 | 10.251333 | 10.090333 | 10.067333 | 10.044000 | 10.032333 | 10.033667 | 10.031667 | 10.018000
+PCM-DAR-HWA/GDC-safe/fold0: 89.733333 | 89.781000 | 89.233333 | 89.059333 | 88.263000 | 87.791333 | 86.897333 | 85.616000 | 85.210333 | 84.812000 | 84.598667 | 84.357000
+PCM-DAR-HWA/GDC-safe/fold1: 90.157000 | 90.144667 | 89.884333 | 89.763667 | 89.121333 | 88.427667 | 87.896667 | 87.137000 | 86.299667 | 86.072333 | 85.850000 | 85.406000
+PCM-DAR-HWA/GDC-safe/fold2: 89.648000 | 89.726333 | 89.244333 | 88.977667 | 88.030000 | 87.448333 | 86.475333 | 85.745667 | 85.026333 | 84.389000 | 84.484333 | 83.627667
+PCM-DAR-HWA/none/fold0: 89.800000 | 86.372000 | 25.419000 | 20.269667 | 9.926667 | 9.884333 | 9.962000 | 9.932000 | 10.002000 | 9.943333 | 9.972000 | 9.971000
+PCM-DAR-HWA/none/fold1: 90.248667 | 86.966000 | 23.475667 | 19.798000 | 12.272667 | 11.736667 | 11.042333 | 10.457333 | 10.359000 | 10.296000 | 10.179333 | 10.149667
+PCM-DAR-HWA/none/fold2: 89.733000 | 86.256333 | 16.769667 | 12.160000 | 9.984000 | 9.993333 | 9.995333 | 10.007333 | 9.980667 | 10.035333 | 9.975333 | 10.071667
+PCM-HWA/DS-B1/fold0: 90.165000 | 90.164000 | 89.700667 | 89.575000 | 88.965000 | 88.451667 | 87.744333 | 86.687333 | 86.534000 | 86.233000 | 85.697000 | 85.369667
+PCM-HWA/DS-B1/fold1: 89.690667 | 89.736333 | 89.447667 | 89.283667 | 88.705000 | 88.140667 | 87.827333 | 86.626000 | 86.164000 | 85.773333 | 85.670333 | 85.180667
+PCM-HWA/DS-B1/fold2: 90.017667 | 90.078667 | 89.752667 | 89.493333 | 88.621000 | 87.946000 | 87.457667 | 86.628333 | 86.123667 | 85.540667 | 85.806000 | 84.771333
+PCM-HWA/DS-val/fold0: 90.157333 | 90.141000 | 89.697000 | 89.552667 | 88.910000 | 88.425000 | 87.711000 | 86.607667 | 86.418667 | 86.041333 | 85.526000 | 85.271667
+PCM-HWA/DS-val/fold1: 89.690667 | 89.736333 | 89.447667 | 89.283667 | 88.705000 | 88.140667 | 87.827333 | 86.626000 | 86.164000 | 85.773333 | 85.670333 | 85.180667
+PCM-HWA/DS-val/fold2: 90.017667 | 90.078667 | 89.752667 | 89.493333 | 88.621000 | 87.946000 | 87.457667 | 86.628333 | 86.123667 | 85.540667 | 85.806000 | 84.771333
+PCM-HWA/GDC-safe/fold0: 90.083667 | 90.075000 | 89.511000 | 89.311667 | 88.644000 | 87.998000 | 87.195333 | 86.058000 | 85.677667 | 85.235000 | 84.874333 | 84.436333
+PCM-HWA/GDC-safe/fold1: 89.647667 | 89.678333 | 89.217667 | 89.162667 | 88.403667 | 87.583333 | 87.023667 | 85.880000 | 85.222000 | 84.881000 | 84.793000 | 84.121333
+PCM-HWA/GDC-safe/fold2: 90.005667 | 89.909667 | 89.459667 | 89.267667 | 88.336000 | 87.408667 | 86.768000 | 85.914000 | 85.187333 | 84.503333 | 84.914667 | 83.854000
+PCM-HWA/none/fold0: 90.146667 | 86.863333 | 26.001333 | 20.051000 | 10.337333 | 10.197000 | 10.158667 | 10.153333 | 10.209667 | 10.159333 | 10.165667 | 10.160000
+PCM-HWA/none/fold1: 89.713333 | 85.667000 | 18.896333 | 15.371000 | 10.554333 | 10.704667 | 10.700667 | 10.507667 | 10.494000 | 10.464667 | 10.269667 | 10.315333
+PCM-HWA/none/fold2: 90.079333 | 86.634333 | 17.455667 | 12.630667 | 10.065667 | 10.039333 | 10.063667 | 10.139333 | 10.146000 | 10.163000 | 10.062333 | 10.067000
+PCM-NSR-HWA/DS-B1/fold0: 89.865000 | 89.806000 | 89.453000 | 89.230000 | 88.612667 | 88.175667 | 87.396333 | 86.336667 | 86.131333 | 85.737000 | 85.486333 | 85.242000
+PCM-NSR-HWA/DS-B1/fold1: 90.031333 | 89.990000 | 89.684333 | 89.685667 | 88.837667 | 88.490333 | 88.132667 | 87.169000 | 86.764333 | 86.189000 | 85.898000 | 85.855667
+PCM-NSR-HWA/DS-B1/fold2: 89.752000 | 89.813333 | 89.496333 | 89.308333 | 88.527333 | 87.939333 | 87.460667 | 86.539333 | 86.217333 | 85.621000 | 85.545000 | 84.815333
+PCM-NSR-HWA/DS-val/fold0: 89.840000 | 89.810333 | 89.442000 | 89.224667 | 88.536333 | 88.146000 | 87.326000 | 86.212000 | 86.017000 | 85.561333 | 85.330000 | 85.066000
+PCM-NSR-HWA/DS-val/fold1: 90.031333 | 89.990000 | 89.684333 | 89.685667 | 88.837667 | 88.490333 | 88.132667 | 87.169000 | 86.764333 | 86.189000 | 85.898000 | 85.855667
+PCM-NSR-HWA/DS-val/fold2: 89.752000 | 89.813333 | 89.496333 | 89.308333 | 88.527333 | 87.939333 | 87.460667 | 86.539333 | 86.217333 | 85.621000 | 85.545000 | 84.815333
+PCM-NSR-HWA/GDC-safe/fold0: 89.773333 | 89.723333 | 89.296333 | 89.127000 | 88.336667 | 87.931333 | 86.953333 | 85.596000 | 85.192667 | 84.683333 | 84.336667 | 83.957667
+PCM-NSR-HWA/GDC-safe/fold1: 89.966333 | 89.933000 | 89.530667 | 89.502000 | 88.563333 | 88.128000 | 87.465000 | 86.507000 | 85.818000 | 85.389667 | 85.119333 | 84.767667
+PCM-NSR-HWA/GDC-safe/fold2: 89.683000 | 89.635000 | 84.083000 | 82.536667 | 65.868000 | 58.332667 | 52.021667 | 51.668333 | 50.382667 | 54.816000 | 51.809333 | 53.923000
+PCM-NSR-HWA/none/fold0: 89.885667 | 86.362333 | 22.810000 | 16.943000 | 10.428000 | 10.079000 | 9.978000 | 9.925000 | 9.926000 | 9.981333 | 9.979333 | 9.974333
+PCM-NSR-HWA/none/fold1: 90.041667 | 86.211667 | 21.423000 | 18.707333 | 14.930667 | 12.524000 | 10.947000 | 10.273000 | 10.166333 | 10.144667 | 10.108000 | 10.062333
+PCM-NSR-HWA/none/fold2: 89.793000 | 86.383333 | 17.024000 | 12.785667 | 10.155000 | 10.102333 | 10.066667 | 10.082000 | 10.058333 | 10.085333 | 10.060000 | 10.100333
+
+PHỤ LỤC C — PAIRED FIVE-YEAR CONTRASTS
+CI95% từng contrast, t df=2; Holm trên8 contrasts exploratory được liệt kê đúng ở đây.
+
+DS-B1 trên HWA so với GDC-safe
+  d_fold = +0.933333, +1.059333, +0.917333 pp
+  mean=+0.970000 pp; CI95%=[+0.776790,+1.163210]; p=0.00213624; Holm8=0.01708990
+
+DS-val trên HWA so với GDC-safe
+  d_fold = +0.835333, +1.059333, +0.917333 pp
+  mean=+0.937333 pp; CI95%=[+0.655803,+1.218864]; p=0.00483761; Holm8=0.03386325
+
+NSR thêm vào DS-B1
+  d_fold = -0.127667, +0.675000, +0.044000 pp
+  mean=+0.197111 pp; CI95%=[-0.852862,+1.247084]; p=0.50403982; Holm8=1.00000000
+
+NSR thêm vào DS-val
+  d_fold = -0.205667, +0.675000, +0.044000 pp
+  mean=+0.171111 pp; CI95%=[-0.956401,+1.298623]; p=0.58080630; Holm8=1.00000000
+
+DAR + GDC-safe so với HWA + GDC-safe
+  d_fold = -0.079333, +1.284667, -0.226333 pp
+  mean=+0.326333 pp; CI95%=[-1.743424,+2.396090]; p=0.56749389; Holm8=1.00000000
+
+NSR + DS-B1 so với DAR + GDC-safe
+  d_fold = +0.885000, +0.449667, +1.187667 pp
+  mean=+0.840778 pp; CI95%=[-0.080793,+1.762348]; p=0.05919307; Holm8=0.33322785
+
+NSR + DS-val so với DAR + GDC-safe
+  d_fold = +0.709000, +0.449667, +1.187667 pp
+  mean=+0.782111 pp; CI95%=[-0.147932,+1.712154]; p=0.06861461; Holm8=0.33322785
+
+NSR + DS-B1 so với HWA + GDC-safe
+  d_fold = +0.805667, +1.734333, +0.961333 pp
+  mean=+1.167111 pp; CI95%=[-0.068392,+2.402614]; p=0.05553797; Holm8=0.33322785
+
+PHỤ LỤC D — CHECKPOINT METADATA ĐÃ ĐƯỢC XUẤT (KHÔNG PHẢI MỘT GPU REPLAY MỚI)
+PCM-HWA fold0: epochs=100, best_epoch=99, val=91.180000%, recorded_restore_diff=0.0
+  model_identity=658067e7ebd70f6c8f06c768088c0ac9a69f973dc8b5bb1ce208f5fe9ab12fe2
+  digital_identity=72c483a9e5892c9e24db0ebf8e87cb3e46009efdb3f168bd979dea7d288a5472
+PCM-NSR-HWA fold0: epochs=100, best_epoch=81, val=91.073333%, recorded_restore_diff=0.0
+  model_identity=45fb089b4d9a9364668ce25d1afc773267ca795fefb5b74661fd49d9f462b263
+  digital_identity=72c483a9e5892c9e24db0ebf8e87cb3e46009efdb3f168bd979dea7d288a5472
+PCM-HWA fold1: epochs=100, best_epoch=93, val=91.306667%, recorded_restore_diff=0.0
+  model_identity=625ff7bb2744f2c256383993a5d625089c2dd5d3fac782053b012b444ff3e595
+  digital_identity=7c48eeec10951023d3ac07ce82dddd74c3256508d4f174c33a892e241f5de09a
+PCM-NSR-HWA fold1: epochs=100, best_epoch=96, val=91.053333%, recorded_restore_diff=0.0
+  model_identity=0adf347da641fb87dd1bcf1318a6e185e33c2115c220c9e303b0042236f9543e
+  digital_identity=7c48eeec10951023d3ac07ce82dddd74c3256508d4f174c33a892e241f5de09a
+PCM-HWA fold2: epochs=100, best_epoch=92, val=91.553333%, recorded_restore_diff=0.0
+  model_identity=69fbaa1905f7c870c2437562f164d3a960f416af91c27574bc61cdbe1013ec5d
+  digital_identity=feb632c3e27cecb14e74bcc36211d734beea018f381a97da0db1b285b0f61f30
+PCM-NSR-HWA fold2: epochs=100, best_epoch=84, val=91.340000%, recorded_restore_diff=0.0
+  model_identity=ba66297dad22a45b3d318c305a7d72470e69e3deffe366a5c8bb453b7d6ee146
+  digital_identity=feb632c3e27cecb14e74bcc36211d734beea018f381a97da0db1b285b0f61f30
+
+PHỤ LỤC E — NGUỒN ĐỐI CHIẾU VÀ ARTIFACT CẦN BỔ SUNG
+
+Nguồn đã đọc/đối chiếu:
+[S1] DriftSlice_ISCAS_P1_worker_HWA_FIXED.ipynb và DriftSlice_ISCAS_P4_worker_NSR_FIXED.ipynb: Config; make_hwa_rpu; nsr_penalty; train_hwa_resnet; PCMPhysicalMatrix; PCMClassReferenceBank; saturation_safe_gdc_gain; retention_one_resnet; two_stage_summary.
+[S2] Uploaded DriftSlice_ISCAS_P0_coordinator_FIXED (2).ipynb, DriftSlice_ISCAS_P2_worker_DAR_FIXED_(1).ipynb, Copy_of_DriftSlice_ISCAS_P3_worker_DriftAttention_FIXED.ipynb: control roles và saved outputs. P0 saved selection in2/1/1; P3 active WORKER_MODELS=NSR khác tên filename và output lịch sử DriftAttention.
+[S3] Uploaded DriftSlice_ISCAS_RESNET_AND_MLP_Full_Experiment_v2_fixed (1).ipynb: protocol154/5 và hook-free gradient route khác; saved fail re-eval checkpoint0.227 pp.
+[S4] Uploaded DriftSlice_ISCAS_GoogleColab_Full_Experiment (1).ipynb và draft _ISCAS_2027__Digital_Analog_Training__Base_.pdf: MLP core, programming-bound policy, one-hot GDC và claims MNIST. PDF claims không được nâng thành raw-data verification khi chưa có source data MLP.
+[S5] NSR_training_audit.zip:600 epoch records HWA/NSR; kiểm tra histories và running-best metadata.
+[S6] NSR_checkpoint_diagnostics.zip:scope.json, checkpoint_metadata.csv, batchnorm_state.csv, gradient_batches/layers/summary.csv.
+[S7] 20261023T063113716279Z.zip:pilot_scope.json có original_config, original_fingerprints và checkpoint_sources; pilot validationR64/256.
+[S8] 3365b8186e37829b.zip:pilot_contract.json, histories, validation_records, selected_checkpoints; NSR lambda continuation0/0.1/1.
+[S9] Bộ full-run raw/fold/summary HWA/NSR đã gửi; source_summary.zip; drive-download-20261024T113541Z-1-001.zip chứa DAR. Các mean/SD trong file này được recompute; không digitize từ hình.
+[S10] AIHWKit1.1.0 source, đặc biệt inference/noise/pcm.py, simulator/tiles/inference_torch.py và periphery.py.
+[S11] Haidar, Ntinas, Tetzlaff, “Drift-Aware Regularization for Long-Term Stability in Phase-Change Memory Based Neural Network Implementations”, AICAS2025, DOI10.1109/AICAS64808.2025.11173140. Figure2/SectionIV-B báo without/with GDC riêng. “Temporal Drift-Regularization and Hyperparameter Optimization...” PDF đã gửi: normalized squared-deviation và validation search.
+
+Các link source/report để kiểm tra:
+https://github.com/Wellknownbuffoon/ISCAS_CONF/blob/84ef7854b89e5a022af9d30f2fe0326c44b62645/DriftSlice_ISCAS_P4_worker_NSR_FIXED.ipynb
+https://github.com/IBM/aihwkit/blob/v1.1.0/src/aihwkit/inference/noise/pcm.py
+https://github.com/IBM/aihwkit/blob/v1.1.0/src/aihwkit/simulator/tiles/inference_torch.py
+https://github.com/IBM/aihwkit/blob/v1.1.0/src/aihwkit/simulator/tiles/periphery.py
+https://raw.githubusercontent.com/Wellknownbuffoon/ISCAS_CONF/f79894452660ad6783fd1f41927c77bbd801fe7f/results_downloads/2026-10-23_uploaded_v2_review/NOTEBOOK_REVIEW.md
+https://raw.githubusercontent.com/Wellknownbuffoon/ISCAS_CONF/c23c0afd8328081d7fe347e6d7faf69de39eced5/results_downloads/2026-10-24_worker_role_check/README.md
+
+Cần bổ sung để trả lời trọn vẹn mức reviewer yêu cầu:
+- manifest/config + Git SHA thực thi, digital/analog histories và checkpoint/digital identity cho mọi method/fold, nhất là DAR/DriftAttention và lần chạy Drive mới.
+- bin_selection_validation.csv và selected_bins.json cho từng fold, đủ score B=1/2/4/8.
+- normalization/detachment ablations, gain-variance decomposition, per-layer GDC/BN under-drift diagnostics.
+- temporal regularizer mạnh hơn dưới matched conditions nếu muốn claim superiority trước baseline đó.
+
+KẾT LUẬN ĐƯỢC PHÉP DÙNG
+Dữ liệu ResNet hiện có hỗ trợ một gain khoảng0.94–0.97 pp của DriftSlice so với GDC-safe khi giữ HWA training cố định, với điều kiện các fold identities thực sự là các training repetitions đã mô tả. Phần NSR thêm vào cùng DriftSlice có mean gain nhỏ, CI chứa0; chưa được chứng minh rõ trên ResNet. Các cơ chế normalization/reference uncertainty và superiority trước temporal baseline mạnh hơn vẫn cần thí nghiệm. Không viết các mục còn thiếu thành kết quả đã được xác nhận.
