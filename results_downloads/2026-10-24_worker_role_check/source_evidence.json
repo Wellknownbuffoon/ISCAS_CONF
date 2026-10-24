@@ -1,0 +1,43 @@
+{
+  "P0": {
+    "PARALLEL_ROLE": "coordinator",
+    "WORKER_MODELS": []
+  },
+  "P2": {
+    "PARALLEL_ROLE": "worker",
+    "WORKER_MODELS": [
+      "PCM-DAR-HWA"
+    ],
+    "expected_folder": "worker-DAR"
+  },
+  "uploaded_P3": {
+    "PARALLEL_ROLE": "worker",
+    "WORKER_MODELS": [
+      "PCM-NSR-HWA"
+    ],
+    "folder_from_current_settings": "worker-NSR",
+    "saved_output_models": [
+      "PCM-DriftAttention-HWA"
+    ],
+    "saved_output_epochs_per_fold": 100,
+    "saved_output_folds": [
+      0,
+      1,
+      2
+    ],
+    "note": "Saved output may be historical; no Drive results were inspected."
+  },
+  "corrected_P3": {
+    "WORKER_MODELS": [
+      "PCM-DriftAttention-HWA"
+    ],
+    "expected_folder": "worker-DriftAttention",
+    "changed_code_cells_zero_based": [
+      3,
+      53
+    ],
+    "core_scientific_functions_changed": false,
+    "training_flags_changed": false
+  },
+  "uploaded_P3_sha256": "60caaf6bcee0ee34b904e8f10253acf32ecfb01b344e71297b7f5325d5af2ebc"
+}

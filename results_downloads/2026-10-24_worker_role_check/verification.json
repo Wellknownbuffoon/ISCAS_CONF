@@ -1,0 +1,9 @@
+{
+  "scope": "Native AIHWKit 1.1.0 CPU; no training, dataset, Drive or actual result inspection",
+  "original_role_tag": "worker-NSR",
+  "corrected_role_tag": "worker-DriftAttention",
+  "all_four_scientific_stage_fingerprints_unchanged": true,
+  "export_guard_accepts_matching_experiment": true,
+  "export_guard_blocks_stale_nsr_experiment_before_writes": true,
+  "all_code_cells_parse": true
+}
