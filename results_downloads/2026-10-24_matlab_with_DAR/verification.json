@@ -1,0 +1,29 @@
+{
+  "methods_plotted": [
+    "PCM-HWA",
+    "PCM-DAR-HWA",
+    "PCM-NSR-HWA"
+  ],
+  "new_DAR_raw_records_verified": 4320,
+  "combined_fold_mean_rows": 576,
+  "combined_summary_rows": 192,
+  "plotted_curve_points": 72,
+  "heatmap_comparisons": 14,
+  "heatmap_triangle_values": 28,
+  "table_rows": 9,
+  "all_60_previous_curve_points_unchanged": true,
+  "all_8_previous_heatmap_comparisons_unchanged": true,
+  "all_3_previous_HWA_table_rows_unchanged": true,
+  "table_gain_baseline": "PCM-HWA + GDC-safe",
+  "bands": "mean +/- 2 sample SD across 3 training-repetition means; not confidence intervals",
+  "missing_final_test_values": "NaN / em dash; not inferred",
+  "matlab_syntax_has_errors": false,
+  "matlab_execution_performed": false,
+  "preview_renderer": "Python matplotlib using the same verified CSV calculations",
+  "checkpoint_provenance": "No checkpoint or model fingerprint files were supplied in these two archives; method identities are taken from the exported method columns.",
+  "matlab_source_sha256": "a708e0b5ca2c28a30cc4a4ef592b107ecf29d2db90dffe6012f931596b8dd312",
+  "archive_sha256": {
+    "DAR_zip": "48c10ae4c3153d83a29de58b897cea84dea9f41946dfac6f3327a14f6a6c4314",
+    "matlab_zip": "00c37a11e3a4d104ef893a0e1b4279209ef425bc45f923bf04bc0caf40c9eb2f"
+  }
+}

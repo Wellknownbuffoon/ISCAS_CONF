@@ -1,0 +1,26 @@
+\begin{table*}[t]
+\centering
+\caption{HWA, DAR-HWA and NSR-HWA retention results. All improvements are relative to HWA + GDC-safe. Accuracy is in percent; gains are percentage points.}
+\label{tab:all-training-driftslice}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lllrrrrrrrr}
+\toprule
+Model & Training & Compensation & \multicolumn{4}{c}{Test Accuracy (\%)} & \multicolumn{4}{c}{Gain vs HWA + GDC-safe (pp)} \\
+\cmidrule(lr){4-7}\cmidrule(lr){8-11}
+ & & & Final Test & Initial 20s & Final 5Y & Max-drop & 1h & 1d & 6M & 5Y \\
+\midrule
+ResNet-32 & HWA & GDC-safe (baseline) & -- & 89.91 & 84.14 & 5.78 & -- & -- & -- & -- \\
+ResNet-32 & HWA & DriftSlice B=1 & -- & \textbf{89.96} & 85.11 & 4.85 & +0.20 & +0.30 & +0.70 & +0.97 \\
+ResNet-32 & HWA & DriftSlice selected B & -- & 89.96 & 85.07 & 4.88 & +0.20 & +0.28 & +0.67 & +0.94 \\
+\midrule
+ResNet-32 & DAR-HWA & GDC-safe & -- & 89.85 & 84.46 & 5.38 & +0.02 & +0.01 & +0.22 & +0.33 \\
+ResNet-32 & DAR-HWA & DriftSlice B=1 & -- & 89.91 & \textbf{85.32} & 4.59 & +0.15 & +0.28 & +0.71 & +1.18 \\
+ResNet-32 & DAR-HWA & DriftSlice selected B & -- & 89.91 & 85.28 & 4.64 & +0.14 & +0.26 & +0.69 & +1.14 \\
+\midrule
+ResNet-32 & NSR-HWA & GDC-safe & -- & 89.81 & 74.22 & 16.05 & -2.19 & -7.54 & -11.36 & -9.92 \\
+ResNet-32 & NSR-HWA & DriftSlice B=1 & -- & 89.88 & 85.30 & \textbf{4.58} & +0.16 & +0.20 & +0.73 & +1.17 \\
+ResNet-32 & NSR-HWA & DriftSlice selected B & -- & 89.87 & 85.25 & 4.63 & +0.16 & +0.17 & +0.69 & +1.11 \\
+\bottomrule
+\end{tabular}}
+\par\smallskip\footnotesize Means across three training repetitions, each with 30 device realizations. Training and compensation vary across rows; matched-training comparisons isolate compensation. Max-drop is initial 20s accuracy minus the minimum over 12 retention times. Final Test before PCM is unavailable in the retention CSVs.
+\end{table*}

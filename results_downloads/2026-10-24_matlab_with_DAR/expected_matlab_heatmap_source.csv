@@ -1,0 +1,15 @@
+panel,candidate_method,candidate_compensation,control_method,control_compensation,delta_accuracy_20s_pp,delta_accuracy_5y_pp
+Training minus HWA (same compensation),PCM-DAR-HWA,none,PCM-HWA,none,-0.05255555555557123,-0.11666666666666714
+Training minus HWA (same compensation),PCM-DAR-HWA,GDC-safe,PCM-HWA,GDC-safe,-0.06622222222223684,0.3263333333333378
+Training minus HWA (same compensation),PCM-DAR-HWA,DS-B1,PCM-HWA,DS-B1,-0.05122222222222206,0.2120000000000033
+Training minus HWA (same compensation),PCM-DAR-HWA,DS-val,PCM-HWA,DS-val,-0.04155555555556134,0.20188888888888812
+Training minus HWA (same compensation),PCM-NSR-HWA,none,PCM-HWA,none,-0.0730000000000075,-0.13511111111111163
+Training minus HWA (same compensation),PCM-NSR-HWA,GDC-safe,PCM-HWA,GDC-safe,-0.10477777777778385,-9.921111111111102
+Training minus HWA (same compensation),PCM-NSR-HWA,DS-B1,PCM-HWA,DS-B1,-0.07500000000000284,0.1971111111111128
+Training minus HWA (same compensation),PCM-NSR-HWA,DS-val,PCM-HWA,DS-val,-0.08077777777776873,0.17111111111110233
+DriftSlice minus GDC-safe (same training),PCM-HWA,DS-B1,PCM-HWA,GDC-safe,0.045444444444441956,0.9699999999999989
+DriftSlice minus GDC-safe (same training),PCM-HWA,DS-val,PCM-HWA,GDC-safe,0.04288888888888209,0.937333333333342
+DriftSlice minus GDC-safe (same training),PCM-DAR-HWA,DS-B1,PCM-DAR-HWA,GDC-safe,0.060444444444456735,0.8556666666666644
+DriftSlice minus GDC-safe (same training),PCM-DAR-HWA,DS-val,PCM-DAR-HWA,GDC-safe,0.06755555555555759,0.8128888888888923
+DriftSlice minus GDC-safe (same training),PCM-NSR-HWA,DS-B1,PCM-NSR-HWA,GDC-safe,0.07522222222222297,11.088222222222214
+DriftSlice minus GDC-safe (same training),PCM-NSR-HWA,DS-val,PCM-NSR-HWA,GDC-safe,0.06688888888889721,11.029555555555547
